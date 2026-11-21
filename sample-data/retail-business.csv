@@ -1,0 +1,53 @@
+transaction_id,date,company,category,direction,amount,currency
+RB-001,2026-01-02,Willow & Pine Wholesale,Inventory,OUTGOING,3850.00,AUD
+RB-002,2026-01-05,Market Street Holdings,Rent,OUTGOING,3200.00,AUD
+RB-003,2026-01-09,Card Sales Settlement,Sales,INCOMING,6120.50,AUD
+RB-004,2026-01-14,Shop Staff Payroll,Wages,OUTGOING,4200.00,AUD
+RB-005,2026-01-16,Card Sales Settlement,Sales,INCOMING,5480.25,AUD
+RB-006,2026-01-20,Wattle Grid Energy,Utilities,OUTGOING,465.30,AUD
+RB-007,2026-01-23,Card Sales Settlement,Sales,INCOMING,5935.00,AUD
+RB-008,2026-01-28,Card Terminal Services,Fees,OUTGOING,182.40,AUD
+RB-009,2026-01-30,Cash Deposit,,INCOMING,1240.00,AUD
+RB-010,2026-02-02,Willow & Pine Wholesale,Inventory,OUTGOING,2960.00,AUD
+RB-011,2026-02-04,Market Street Holdings,Rent,OUTGOING,3200.00,AUD
+RB-012,2026-02-06,Card Sales Settlement,Sales,INCOMING,4875.60,AUD
+RB-013,2026-02-11,Shop Staff Payroll,Wages,OUTGOING,4200.00,AUD
+RB-014,2026-02-13,Card Sales Settlement,Sales,INCOMING,5102.15,AUD
+RB-015,2026-02-18,Boxwood Packaging,Supplies,OUTGOING,348.75,AUD
+RB-016,2026-02-20,Card Sales Settlement,Sales,INCOMING,4690.00,AUD
+RB-017,2026-02-25,Willow & Pine Wholesale,Refunds,INCOMING,215.00,AUD
+RB-018,2026-02-27,Card Terminal Services,Fees,OUTGOING,151.90,AUD
+RB-019,2026-03-02,Willow & Pine Wholesale,Inventory,OUTGOING,4410.00,AUD
+RB-020,2026-03-04,Market Street Holdings,Rent,OUTGOING,3200.00,AUD
+RB-021,2026-03-06,Card Sales Settlement,Sales,INCOMING,6780.40,AUD
+RB-022,2026-03-11,Shop Staff Payroll,Wages,OUTGOING,4650.00,AUD
+RB-023,2026-03-13,Card Sales Settlement,Sales,INCOMING,7015.85,AUD
+RB-024,2026-03-17,Local Radio Promotions,Marketing,OUTGOING,900.00,AUD
+RB-025,2026-03-20,Card Sales Settlement,Sales,INCOMING,6420.00,AUD
+RB-026,2026-03-24,Clearview Window Cleaning,,OUTGOING,120.00,AUD
+RB-027,2026-03-31,Savings Account Interest,Interest,INCOMING,18.42,AUD
+RB-028,2026-04-01,Willow & Pine Wholesale,Inventory,OUTGOING,3725.00,AUD
+RB-029,2026-04-03,Market Street Holdings,Rent,OUTGOING,3200.00,AUD
+RB-030,2026-04-10,Card Sales Settlement,Sales,INCOMING,5560.30,AUD
+RB-031,2026-04-14,Shop Staff Payroll,Wages,OUTGOING,4200.00,AUD
+RB-032,2026-04-17,Card Sales Settlement,Sales,INCOMING,5245.75,AUD
+RB-033,2026-04-21,Wattle Grid Energy,Utilities,OUTGOING,438.60,AUD
+RB-034,2026-04-24,Card Sales Settlement,Sales,INCOMING,4980.00,AUD
+RB-035,2026-04-28,Tallowood Software,Software,OUTGOING,99.00,AUD
+RB-036,2026-05-01,Willow & Pine Wholesale,Inventory,OUTGOING,4980.00,AUD
+RB-037,2026-05-05,Market Street Holdings,Rent,OUTGOING,3200.00,AUD
+RB-038,2026-05-08,Card Sales Settlement,Sales,INCOMING,7340.20,AUD
+RB-039,2026-05-12,Shop Staff Payroll,Wages,OUTGOING,4650.00,AUD
+RB-040,2026-05-15,Card Sales Settlement,Sales,INCOMING,7890.00,AUD
+RB-041,2026-05-19,Ironbark Insurance,Insurance,OUTGOING,1340.00,AUD
+RB-042,2026-05-22,Card Sales Settlement,Sales,INCOMING,6655.45,AUD
+RB-043,2026-05-27,Boxwood Packaging,,OUTGOING,412.30,AUD
+RB-044,2026-05-29,Cash Deposit,Sales,INCOMING,1580.00,AUD
+RB-045,2026-06-02,Willow & Pine Wholesale,Inventory,OUTGOING,3150.00,AUD
+RB-046,2026-06-03,Market Street Holdings,Rent,OUTGOING,3200.00,AUD
+RB-047,2026-06-05,Card Sales Settlement,Sales,INCOMING,4720.10,AUD
+RB-048,2026-06-11,Shop Staff Payroll,Wages,OUTGOING,4200.00,AUD
+RB-049,2026-06-12,Card Sales Settlement,Sales,INCOMING,4385.65,AUD
+RB-050,2026-06-19,Card Sales Settlement,,INCOMING,4510.00,AUD
+RB-051,2026-06-23,Wattle Grid Energy,Utilities,OUTGOING,451.20,AUD
+RB-052,2026-06-30,Savings Account Interest,Interest,INCOMING,17.96,AUD

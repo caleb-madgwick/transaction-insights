@@ -1,0 +1,50 @@
+transaction_id,date,company,category,direction,amount,currency
+SB-001,2026-01-05,Acacia Lane Properties,Rent,OUTGOING,2200.00,AUD
+SB-002,2026-01-08,Tallowood Software,Software,OUTGOING,189.00,AUD
+SB-003,2026-01-12,Fernhill Architects,Services,INCOMING,4800.00,AUD
+SB-004,2026-01-15,Wattle Grid Energy,Utilities,OUTGOING,312.45,AUD
+SB-005,2026-01-20,Kestrel Print Co,,OUTGOING,145.80,AUD
+SB-006,2026-01-23,Riverbend Dental Group,Services,INCOMING,3250.00,AUD
+SB-007,2026-01-28,Avery Contracting,Wages,OUTGOING,2600.00,AUD
+SB-008,2026-01-31,Savings Account Interest,Interest,INCOMING,12.37,AUD
+SB-009,2026-02-03,Acacia Lane Properties,Rent,OUTGOING,2200.00,AUD
+SB-010,2026-02-06,Tallowood Software,Software,OUTGOING,189.00,AUD
+SB-011,2026-02-10,Fernhill Architects,Services,INCOMING,5200.00,AUD
+SB-012,2026-02-14,Ironbark Insurance,Insurance,OUTGOING,860.00,AUD
+SB-013,2026-02-18,Skyway Travel,Travel,OUTGOING,642.30,AUD
+SB-014,2026-02-24,Avery Contracting,Wages,OUTGOING,2600.00,AUD
+SB-015,2026-02-26,Coastline Physio,Services,INCOMING,1750.00,AUD
+SB-016,2026-02-28,Savings Account Interest,Interest,INCOMING,11.92,AUD
+SB-017,2026-03-03,Acacia Lane Properties,Rent,OUTGOING,2200.00,AUD
+SB-018,2026-03-06,Tallowood Software,Software,OUTGOING,189.00,AUD
+SB-019,2026-03-09,Riverbend Dental Group,Services,INCOMING,6400.00,AUD
+SB-020,2026-03-13,Wattle Grid Energy,Utilities,OUTGOING,298.10,AUD
+SB-021,2026-03-17,Brightside Ads,Marketing,OUTGOING,750.00,AUD
+SB-022,2026-03-21,Paperbark Stationery,,OUTGOING,86.55,AUD
+SB-023,2026-03-26,Avery Contracting,Wages,OUTGOING,3100.00,AUD
+SB-024,2026-03-31,Savings Account Interest,Interest,INCOMING,13.05,AUD
+SB-025,2026-04-02,Acacia Lane Properties,Rent,OUTGOING,2200.00,AUD
+SB-026,2026-04-07,Tallowood Software,Software,OUTGOING,189.00,AUD
+SB-027,2026-04-10,Fernhill Architects,Services,INCOMING,2900.00,AUD
+SB-028,2026-04-14,Skyway Travel,,OUTGOING,1185.00,AUD
+SB-029,2026-04-17,Tallowood Software,Refunds,INCOMING,189.00,AUD
+SB-030,2026-04-22,Kestrel Print Co,Supplies,OUTGOING,212.40,AUD
+SB-031,2026-04-27,Avery Contracting,Wages,OUTGOING,2600.00,AUD
+SB-032,2026-04-30,Savings Account Interest,Interest,INCOMING,10.84,AUD
+SB-033,2026-05-04,Acacia Lane Properties,Rent,OUTGOING,2200.00,AUD
+SB-034,2026-05-07,Tallowood Software,Software,OUTGOING,189.00,AUD
+SB-035,2026-05-11,Coastline Physio,Services,INCOMING,4100.00,AUD
+SB-036,2026-05-13,Wattle Grid Energy,Utilities,OUTGOING,276.90,AUD
+SB-037,2026-05-19,Riverbend Dental Group,Services,INCOMING,3600.00,AUD
+SB-038,2026-05-22,Card Terminal Services,Fees,OUTGOING,48.20,AUD
+SB-039,2026-05-27,Avery Contracting,Wages,OUTGOING,2600.00,AUD
+SB-040,2026-05-29,Brightside Ads,,OUTGOING,500.00,AUD
+SB-041,2026-05-31,Savings Account Interest,Interest,INCOMING,12.11,AUD
+SB-042,2026-06-02,Acacia Lane Properties,Rent,OUTGOING,2200.00,AUD
+SB-043,2026-06-05,Tallowood Software,Software,OUTGOING,189.00,AUD
+SB-044,2026-06-09,Fernhill Architects,Services,INCOMING,7350.00,AUD
+SB-045,2026-06-12,Ironbark Insurance,Insurance,OUTGOING,860.00,AUD
+SB-046,2026-06-16,Harbour Events,Marketing,OUTGOING,1200.00,AUD
+SB-047,2026-06-23,Avery Contracting,Wages,OUTGOING,3400.00,AUD
+SB-048,2026-06-26,Silverleaf Legal,Services,INCOMING,2250.00,AUD
+SB-049,2026-06-30,Savings Account Interest,Interest,INCOMING,12.64,AUD

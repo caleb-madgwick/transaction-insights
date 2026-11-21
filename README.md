@@ -18,8 +18,29 @@ sample-data/  Synthetic CSVs
 evidence/     Intent, design, decisions
 ```
 
+## Backend setup
+Requires Python 3.11+.
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Run:** `uvicorn main:app --reload`, then open http://127.0.0.1:8000/docs.
+- `POST /datasets/small-business/load` loads a sample.
+- The database is created at `backend/transaction_insights.db` and is git-ignored.
+
+**Test:** `pytest` (each test uses its own temporary database).
+
 ## Status
-Stage 1 of 8: docs and structure only.
+
+| Stage | Status |
+|-------|--------|
+| 1 Docs | Done |
+| 2 Backend + samples | Done |
+| 3–8 | Not started |
 
 ## Docs
-[Intent](evidence/intent.md) · [Design](evidence/design.md) · [Decisions](evidence/decisions.md)
+[Intent](evidence/intent.md) · [Design](evidence/design.md) · [Decisions](evidence/decisions.md) · [Agentic workflow](evidence/agentic-workflow.md)

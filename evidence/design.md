@@ -1,104 +1,82 @@
 # Design
 
 ## Architecture
-
-```mermaid
-flowchart LR
-    UI[React SPA] -->|fetch / JSON| API[FastAPI]
-    API --> DB[(SQLite)]
-    CSV[sample-data/*.csv] -->|seeded on startup| API
-```
+React SPA → (`fetch`, JSON) → FastAPI → SQLite. One process, one database file, no external services.
 
 - **Frontend:** display, filters, upload/mapping forms. No calculations.
 - **Backend:** validation, import, all calculations, audit.
-- One process, one database file. No external services.
 
-## Planned files
+## Files
 
 ```
 backend/
-  main.py          routes, summary calculations, startup seeding
+  main.py          routes, sample loading (+ summary in Stage 4)
   db.py            sqlite3 connection + schema
-  importer.py      CSV parsing, aliases, mapping, validation (pure functions)
-  requirements.txt
-  tests/           pytest (temp DB)
-frontend/src/
-  App.tsx          nav + dataset state
-  Overview.tsx  History.tsx  HowItWorks.tsx
-  api.ts           fetch helpers + types
-  styles.css
-sample-data/
-  generate.py      fixed-seed generator
-  household.csv  small-business.csv
+  models.py        Transaction model + categories (shared; avoids circular imports)
+  importer.py      CSV parsing, aliases, mapping (Stage 3)
+  requirements.txt  pytest.ini  tests/
+frontend/src/      (Stage 5)
+  App.tsx  Overview.tsx  History.tsx  HowItWorks.tsx  api.ts  styles.css
+sample-data/       small-business.csv, retail-business.csv (static, synthetic)
 ```
 
 ## Dependencies
 
 | Backend | Frontend |
 |---------|----------|
-| fastapi, uvicorn, python-multipart (uploads) | react, react-dom, recharts |
-| pytest, httpx (TestClient) | vite 6, typescript, @vitejs/plugin-react |
+| fastapi, uvicorn (+ python-multipart in Stage 3) | react, react-dom, recharts |
+| pytest, httpx2 (TestClient) | vite 6, typescript, @vitejs/plugin-react |
 
-Vite 6, not 7: the local Node version is 22.9 and Vite 7 needs 22.12 or later.
-
-## Data flow
-
-```mermaid
-flowchart LR
-    A[Upload CSV] --> B{Headers known?}
-    B -- no --> C[User maps columns] --> D
-    B -- yes --> D{All rows valid?}
-    D -- no --> E[Reject, nothing saved]
-    D -- yes --> F[Insert all in one transaction]
-```
+- Vite 6: local Node 22.9 is too old for Vite 7.
+- httpx2: Starlette deprecates httpx for its test client.
 
 ## Data model
 
 | Table | Fields |
 |-------|--------|
-| `datasets` | dataset_id, name, file_sha256 (unique), created_at |
-| `transactions` | transaction_id, dataset_id, date, company, category (nullable), direction, amount_cents (>0), currency (AUD) |
+| `datasets` | dataset_id (PK), name, file_sha256 (unique), created_at |
+| `transactions` | PK (dataset_id, transaction_id), date, company, category (nullable), direction, amount_cents (>0), currency (AUD) |
 | `category_audit` | dataset_id, transaction_id, previous_category, new_category, changed_at |
+
+- Foreign keys enforced. Model dates must be `YYYY-MM-DD` strings.
+- **Income categories:** Sales, Services, Interest, Refunds.
+- **Expense categories:** Rent, Wages, Inventory, Supplies, Utilities, Marketing, Software, Insurance, Travel, Fees.
 
 ## API
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/categories` | Approved categories |
-| GET | `/api/datasets` | List datasets |
-| POST | `/api/datasets` | Upload CSV (+ optional mapping) |
-| GET | `/api/datasets/{id}/summary?start&end` | Totals, monthly, by category, text |
-| GET | `/api/datasets/{id}/transactions?start&end&category&direction` | Filtered list |
-| PATCH | `/api/datasets/{id}/transactions/{tid}` | Set category (audited) |
+| Method | Path | Purpose | Status |
+|--------|------|---------|--------|
+| GET | `/health` | Health check | Done |
+| GET | `/datasets` | Samples + loaded datasets | Done |
+| POST | `/datasets/{sample_id}/load` | Load sample (idempotent) | Done |
+| GET | `/datasets/{id}/transactions` | List transactions | Done (filters: Stage 4) |
+| POST | `/datasets` | Upload CSV (+ optional mapping) | Stage 3 |
+| GET | `/datasets/{id}/summary?start&end` | Totals, monthly, by category, text | Stage 4 |
+| PATCH | `/datasets/{id}/transactions/{tid}` | Set category (audited) | Stage 4 |
+| GET | `/categories` | Approved categories | Stage 4 |
 
-- Mapping reuses `POST /api/datasets`: a response of `mapping_required` means resubmit with a `mapping` field.
-- Errors: `{"detail": {"code", "message"}}`, e.g. `mapping_required`, `invalid_rows`, `duplicate_file`.
+- Errors: `{"detail": {"code", "message"}}`, e.g. `dataset_not_found`.
+- Invalid path or body values: FastAPI's default 422.
 
-## CSV validation
-- `.csv`, UTF-8, ≤ 2 MB, parsed in memory with stdlib `csv`.
-- Small alias dict (e.g. `payee` → company); unknown headers → user maps.
-- Date: `YYYY-MM-DD` or `DD/MM/YYYY`.
-- Amount: positive, ≤ 2 decimals, `Decimal` → integer cents.
+## CSV import (Stage 3)
+- `.csv`, UTF-8, ≤ 2 MB, stdlib `csv`, in memory.
+- Known aliases (e.g. `payee` → company); unknown headers → user maps.
+- Date `YYYY-MM-DD` or `DD/MM/YYYY`; amount positive, ≤ 2 decimals → cents.
 - Direction: in/credit → INCOMING, out/debit → OUTGOING, else reject.
-- Category: blank → null; otherwise must be approved.
-- All-or-nothing import; duplicate file hash or transaction ID rejected.
+- Blank category → null; otherwise must be approved.
+- All-or-nothing; duplicate file or transaction ID rejected.
 
-## Calculations
-- Income = sum INCOMING; Expenses = sum OUTGOING; Net = Income − Expenses.
-- Uncategorised always included.
+## Calculations and review (Stage 4)
+- Income = INCOMING, Expenses = OUTGOING, Net = Income − Expenses. Uncategorised included.
 - Integer cents only; fixed-template summary text.
-
-## Human review
-Uncategorised rows highlighted → user picks approved category → update + audit in one transaction → summary refreshes.
+- Category change: approved value only, update + audit in one transaction.
 
 ## Security
 - Parameterised SQL, input validation, DB constraints.
 - Uploads not stored; no transaction data in logs.
 - No auth (local demo gap).
 
-## Future AI (not implemented)
-- **Categorisation:** AI suggests → validated against approved list → human approves → audited.
-- **Summaries:** AI explains verified aggregates only; numbers checked; template fallback.
-
-## Production (proposal only, not built)
-CDN (frontend) → API gateway → FastAPI on a managed host → managed PostgreSQL. CI runs pytest and the frontend build before deploying. Secrets manager, central logging, OIDC auth.
+## Future (not built)
+- **AI categorisation:** suggests → checked against approved list → human approves → audited.
+- **AI summaries:** explain verified totals only; template fallback.
+- **Production:** CDN, API gateway, managed host, PostgreSQL, CI, secrets manager, OIDC auth.

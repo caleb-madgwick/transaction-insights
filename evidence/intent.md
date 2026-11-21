@@ -25,7 +25,7 @@ Transaction CSVs are inconsistent and often miss categories. Users need trustwor
 Auth, multi-currency, editing/deleting transactions, merging uploads, debit/credit column formats, live bank feeds, runtime AI, cloud deployment.
 
 ## Acceptance criteria
-- [ ] Two sample datasets load on start, never duplicated.
+- [x] Two sample datasets available; loading twice never duplicates.
 - [ ] Non-CSV files rejected.
 - [ ] Missing required columns named in error.
 - [ ] Unknown headers → mapping prompt → import succeeds.
