@@ -1,0 +1,46 @@
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# SQLite runtime databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*-wal
+*-shm
+
+# User-uploaded files
+uploads/
+
+# Temporary artifacts
+tmp/
+*.tmp
+*.log
+.DS_Store
+
+# Note: CSV files are deliberately NOT ignored so that the synthetic
+# datasets in sample-data/ remain tracked.
