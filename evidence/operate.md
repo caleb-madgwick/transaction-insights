@@ -51,6 +51,8 @@ rm backend/transaction_insights.db             # reset (recreated empty on start
 **Promotion path:** pull request → tests and security checks → code review → versioned build → staging → smoke tests → approval → production → monitoring and rollback.
 
 - **Today:** GitHub Actions runs `./verify.sh`. It verifies; it does not deploy.
+- **PR checks to add:** linting, dependency audit (`pip-audit`, `npm audit`), static analysis, secret scanning. See [verify.md](verify.md#local-vs-pipeline).
+- **Build:** API as a container image (scanned, signed); frontend as static assets; infrastructure as code for every environment.
 - **Releases:** one immutable versioned build promoted through each environment; roll back by redeploying the previous version.
 - **Database:** managed PostgreSQL, automated backups, migrations compatible with the previous release.
 - **Hosting:** static frontend on a CDN; API on a managed host behind TLS, rate limits and upload size limits.

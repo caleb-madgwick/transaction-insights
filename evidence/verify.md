@@ -23,14 +23,20 @@ Starts an isolated backend (temporary DB, port 8100) and Vite (5273), runs 61 ch
 ## Results
 | Check | Code | Result |
 |-------|------|--------|
-| GitHub Actions | `221bf33` | Passed, 129 tests + build ([run 44875040130](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44875040130)) |
-| Clean checkout: fresh clone, new venv, `pip install`, `npm ci`, `./verify.sh` | `221bf33` | 129 passed, build OK, exit 0 |
-| `./verify.sh` (macOS, Python 3.13.13, Node 22.9.0) | Stage 8 tree (committed as `a2a4bed`) | 132 passed, build OK, exit 0 |
-| Scratch browser script (not committed then) | Stage 8 tree (committed as `a2a4bed`) | 57/57 |
-| GitHub Actions | `a2a4bed` | Passed ([run 44877086877](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44877086877)) |
-| `./verify.sh` (macOS, Python 3.13.13, Node 22.9.0) | Assurance pass, uncommitted | 146 passed, build OK, exit 0 |
-| `scripts/browser-smoke/run.sh` (headless Chrome) | Assurance pass, uncommitted | 61/61 |
-| GitHub Actions | Assurance pass | Not yet pushed: unverified |
+| `./verify.sh` (macOS, Python 3.13.13, Node 22.9.0) | `169836e` | 146 passed, build OK, exit 0 |
+| Clean checkout: fresh clone, new venv, `pip install`, `npm ci`, `./verify.sh` | `169836e` | 146 passed, build OK, exit 0 |
+| `scripts/browser-smoke/run.sh` (headless Chrome) | `169836e` | 61/61 |
+| GitHub Actions | `169836e` | Passed ([run 44878620221](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44878620221)) |
+
+## Local vs pipeline
+| Check | Local | PR / CI today | Proposed pipeline |
+|-------|-------|---------------|-------------------|
+| Pytest + type-check + build (`./verify.sh`) | Yes | Yes | Yes |
+| Browser smoke test | Yes | No | Yes, against staging |
+| Linting (ruff, eslint) | No | No | Yes |
+| Dependency audit (`pip-audit`, `npm audit`) | No | No | Yes |
+| Static analysis and secret scanning | No | No | Yes |
+| Container image scan | n/a | n/a | Yes |
 
 **New regression tests (14):**
 - Max amount accepted (signed +/−, leading zeros, explicit direction).
@@ -52,7 +58,7 @@ Starts an isolated backend (temporary DB, port 8100) and Vite (5273), runs 61 ch
 - Browser smoke test is optional and local; not in CI. No frontend unit tests. No linting.
 - Tested only on Python 3.13 and Node 22; smoke test only on macOS Chrome.
 - A CSV field over 131,072 characters is rejected as malformed CSV (400) by Python's `csv` limit, not as an amount row error.
-- JS bundle 725.62 kB (214.25 kB gzipped); Vite warns about size.
+- JS bundle 727.25 kB (214.94 kB gzipped); Vite warns about size.
 - No authentication, authorisation, rate limiting or monitoring.
 - The 1 MB upload limit is checked after the request is received; production needs a proxy limit.
 - `requirements.txt` pins direct dependencies only; transitive versions can drift.
