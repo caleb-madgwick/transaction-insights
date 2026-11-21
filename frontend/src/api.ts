@@ -70,10 +70,15 @@ export const UNCATEGORISED = "uncategorised";
 export const FIELDS = ["date", "company", "amount", "direction", "category", "currency", "transaction_id"];
 
 export class ApiError extends Error {
-  constructor(message: string, public errors: RowError[] = [], public code = "") {
+  // status 0 = no response (network failure); otherwise the HTTP status.
+  constructor(message: string, public errors: RowError[] = [], public code = "", public status = 0) {
     super(message);
   }
 }
+
+// A 4xx answer means the server refused the request and changed nothing. A network failure or 5xx
+// is ambiguous: the server may have committed the change before the response was lost.
+export const isRejection = (e: unknown) => e instanceof ApiError && e.status >= 400 && e.status < 500;
 
 const UNREACHABLE = "Cannot reach the server. Check the backend is running on port 8000.";
 
@@ -96,14 +101,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // The Vite proxy answers with an empty 5xx when the backend is down; FastAPI's own crash page
     // is the plain text "Internal Server Error". Neither body is shown to the user.
     throw new ApiError(text === "" || response.status >= 502 ? UNREACHABLE
-      : `The server encountered an error (${response.status}). Try again, or check the backend log.`);
+      : `The server encountered an error (${response.status}). Try again, or check the backend log.`,
+      [], "", response.status);
   }
 
   const detail = body.detail;
   if (Array.isArray(detail)) {  // FastAPI validation error list
-    throw new ApiError(detail.map((d: { loc: string[]; msg: string }) => `${d.loc.at(-1)}: ${d.msg}`).join("; "));
+    throw new ApiError(detail.map((d: { loc: string[]; msg: string }) => `${d.loc.at(-1)}: ${d.msg}`).join("; "),
+      [], "", response.status);
   }
-  throw new ApiError(detail?.message ?? `Request failed (${response.status}).`, detail?.errors ?? [], detail?.code ?? "");
+  throw new ApiError(detail?.message ?? `Request failed (${response.status}).`, detail?.errors ?? [], detail?.code ?? "",
+    response.status);
 }
 
 // Only non-empty values become query parameters.

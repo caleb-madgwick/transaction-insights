@@ -19,6 +19,7 @@ React (Vite) → `fetch` (HTTP/JSON, multipart CSV upload) → FastAPI → SQLit
 | `frontend/src/HowItWorks.tsx` | Engineering walkthrough |
 | `frontend/src/api.ts` | API types, fetch wrapper, money formatting |
 | `sample-data/` | 5 synthetic samples; `fixtures/` = 8 CSV test scenarios |
+| `scripts/browser-smoke/` | Optional headless Chrome smoke test (own `puppeteer-core` install, not in CI) |
 
 **Dependencies:** fastapi, uvicorn, python-multipart, pytest, httpx2 · react, react-dom, recharts, vite 6, typescript, @vitejs/plugin-react 4.7 (Vite 6 because Node 22.9 is too old for Vite 7).
 
@@ -31,11 +32,13 @@ React (Vite) → `fetch` (HTTP/JSON, multipart CSV upload) → FastAPI → SQLit
 
 ## Key rules
 - **Money:** amounts parsed with `Decimal` into positive integer cents plus an explicit direction. No floats.
+- **Amount limit:** 1 cent to $1,000,000,000.00 per transaction (`MAX_AMOUNT_CENTS`), enforced by the shared row validator and the model, so preview and import agree. Over-long numbers are rejected before conversion. Max dataset total: 5,000 × 10¹¹ = 5 × 10¹⁴ cents, below SQLite's 2⁶³ − 1 and JavaScript's 2⁵³ − 1.
 - **Import:** `.csv`, UTF-8, ≤ 1 MB, ≤ 5,000 rows. Preview validates without writing; import re-validates and inserts all rows or none.
 - **No guessing:** unknown headers need a mapping; direction comes from a column or signed amounts, otherwise the file is rejected.
-- **Duplicates:** same file bytes (SHA-256) → 409; duplicate transaction IDs → rejected.
+- **Duplicates:** identical file bytes (SHA-256) → 409; duplicate transaction IDs within a file → rejected. No semantic deduplication: the same rows with different whitespace, line endings or order import as a new dataset. That is deliberate: identical-looking rows can be separate payments, and safe merging needs reliable source IDs and business rules.
 - **Summary:** net = income − expenses, uncategorised rows included. One query feeds every figure. A category is only called "largest" if it exceeds uncategorised expenses.
 - **Review:** approved categories only; update and audit row commit together. Repeating a change is a no-op.
+- **Health:** `GET /health` = liveness (no DB). `GET /ready` = read-only DB and schema check; 503 with no details if unavailable.
 - **Scope:** every query is filtered by `dataset_id` and uses bound parameters.
 
 ## Frontend behaviour
@@ -44,6 +47,7 @@ React (Vite) → `fetch` (HTTP/JSON, multipart CSV upload) → FastAPI → SQLit
 - Changing the source hides old results; request sequence numbers stop late responses overwriting newer ones.
 - Review filters: Direction, Category, Needs review, Clear all. Filtering is done by the backend. No date filters.
 - Errors: API messages are shown as-is; a network failure says "Cannot reach the server"; a non-JSON 500 shows a generic server-error message.
+- Category save: a 4xx says "Not saved" (confirmed rejection). A network failure or 5xx says the save could not be confirmed and reloads the list and summary from the server.
 
 ## Security (local only)
 - **Implemented:** input validation, parameterised SQL, DB constraints, `.csv`-only uploads with size and row limits, allowlisted sample files, no upload storage, React output escaping.

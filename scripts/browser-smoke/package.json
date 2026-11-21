@@ -1,0 +1,8 @@
+{
+  "name": "transaction-insights-browser-smoke",
+  "private": true,
+  "type": "module",
+  "description": "Optional headless Chrome smoke test. Not part of the app or CI.",
+  "scripts": { "smoke": "./run.sh" },
+  "dependencies": { "puppeteer-core": "24.43.1" }
+}

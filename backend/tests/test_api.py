@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 import db
 from main import app, load_sample
-from models import Transaction
+from models import MAX_AMOUNT_CENTS, Transaction
 
 VALID = {
     "transaction_id": "T1", "dataset_id": 1, "date": "2026-01-05", "company": "Test Co",
@@ -30,7 +30,7 @@ def test_invalid_direction_rejected(direction):
         Transaction(**{**VALID, "direction": direction})
 
 
-@pytest.mark.parametrize("amount", [0, -100, 12.5, "1250", None])
+@pytest.mark.parametrize("amount", [0, -100, 12.5, "1250", None, MAX_AMOUNT_CENTS + 1])
 def test_invalid_amount_rejected(amount):
     with pytest.raises(ValidationError):
         Transaction(**{**VALID, "amount_cents": amount})
@@ -64,6 +64,25 @@ def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_ready_when_database_available(client):
+    response = client.get("/ready")
+    assert (response.status_code, response.json()) == (200, {"status": "ready"})
+    assert client.get("/datasets").json()["datasets"] == []  # readiness writes nothing
+
+
+def test_not_ready_when_database_unavailable(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "missing-dir" / "test.db")  # cannot be opened
+    response = client.get("/ready")
+    assert (response.status_code, response.json()) == (503, {"status": "unavailable"})  # no path or error text
+    assert client.get("/health").status_code == 200  # liveness is independent of the database
+
+
+def test_not_ready_when_schema_missing(client):
+    with closing(db.connect()) as conn:
+        conn.execute("DROP TABLE category_audit")
+    assert client.get("/ready").status_code == 503
 
 
 def test_sample_loads(client):

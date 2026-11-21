@@ -19,6 +19,22 @@ const DECISIONS = [
   ["Minimal stack (React state, fetch, plain CSS)", "Fewest dependencies to verify", "No deep links; fewer UI niceties"],
 ];
 
+const SYSTEM_DECISIONS = [
+  ["Backend calculates every figure; frontend only displays", "One tested source of truth", "Extra round trip after each review change"],
+  ["Each upload is its own dataset; every query scoped by dataset", "Full isolation; no merge rules needed", "No cross-dataset views or deduplication"],
+  ["Stateless preview, full re-validation on import; uploads never stored", "No orphan files; import never trusts the client", "File is parsed and sent twice"],
+  ["Category is the only editable field: approved list, audited, repeat = no-op", "Human review without touching money; safe to retry", "No custom categories or other corrections"],
+  ["One FastAPI app; pure importer and summary modules, DB only in main/db", "Core logic testable without a DB; little code to review", "Needs restructuring to scale"],
+];
+
+const PROCESS_DECISIONS = [
+  ["Plan in ChatGPT, implement in Claude Code", "Architecture and stage prompts fixed before code", "Two tools to keep consistent"],
+  ["Persistent agent rules in CLAUDE.md", "Same constraints in every stage and session", "Rules must be kept current"],
+  ["Independent review, not the agent's own assessment", "Found stale async responses, ambiguous save failures and unsafe number limits the build passed", "Extra review and fix cycles"],
+  ["Only the human commits to Git", "Every change reviewed; small, staged history", "Slower than agent commits"],
+  ["Fresh agent session for final verification", "Less anchored on earlier implementation context", "Context rebuilt from the repo"],
+];
+
 const PIPELINE: [string, boolean][] = [
   ["Pull request", true], ["./verify.sh in GitHub Actions", true], ["Code review", false], ["Versioned build", false],
   ["Staging + smoke tests", false], ["Approval", false], ["Production", false], ["Monitor / roll back", false],
@@ -33,10 +49,11 @@ const AGENT_FLOW: [string, boolean][] = [
 const SAFETY = [
   ["Data", "Synthetic data only. No credentials or paid APIs. Uploaded files are parsed in memory, never saved."],
   ["Input safety", "Strict CSV validation, parameterised SQL, allowlisted sample files."],
-  ["Fails safely", "Invalid CSV → structured row errors, nothing imported. Duplicate file → 409. Invalid category → 422."],
+  ["Fails safely", "Invalid CSV → structured row errors, nothing imported. Amounts over $1,000,000,000.00 rejected. " +
+    "Duplicate file → 409. Invalid category → 422. A save with no reply is reported as unconfirmed and reloaded."],
   ["Integrity", "Atomic imports, dataset-scoped queries, audited and idempotent category changes."],
-  ["Operability", "GET /health. Uvicorn request logs show method, path and status; paths can contain transaction IDs, " +
-    "but never amounts, company names or CSV contents. Readable errors if the API is down or fails."],
+  ["Operability", "GET /health (liveness) and GET /ready (database check). Uvicorn request logs show method, path " +
+    "and status; paths can contain transaction IDs. The app logs no CSV contents. Readable errors if the API is down or fails."],
   ["Not implemented (production)", "Authentication, authorisation, rate limiting, proxy request-size limits, " +
     "TLS and monitoring are proposed designs, not built. Single-user local SQLite."],
 ];
@@ -92,12 +109,9 @@ export default function HowItWorks() {
 
       <Section id="design" n={2} title="Design & technology choices">
         <p className="stack">React + TypeScript + Vite · FastAPI + Pydantic · SQLite (sqlite3) · Recharts · Pytest</p>
-        <table className="decisions-table">
-          <thead><tr><th>Decision</th><th>Why</th><th>Trade-off</th></tr></thead>
-          <tbody>
-            {DECISIONS.map(([d, why, t]) => <tr key={d}><td>{d}</td><td>{why}</td><td>{t}</td></tr>)}
-          </tbody>
-        </table>
+        <Decisions rows={DECISIONS} />
+        <h3>System design</h3>
+        <Decisions rows={SYSTEM_DECISIONS} />
       </Section>
 
       <Section id="ai" n={3} title="AI agents & verification">
@@ -116,10 +130,12 @@ export default function HowItWorks() {
             <ul className="ticks">
               <li><strong>One command:</strong> <code>./verify.sh</code> runs the backend tests, TypeScript check and build.</li>
               <li><strong>Every push:</strong> GitHub Actions runs the same script.</li>
-              <li><strong>Browser:</strong> headless Chrome scripts tested the running app (not in CI).</li>
+              <li><strong>Browser:</strong> an optional headless Chrome smoke test runs against the app (not in CI).</li>
             </ul>
           </div>
         </div>
+        <h3>Process decisions</h3>
+        <Decisions rows={PROCESS_DECISIONS} />
       </Section>
 
       <Section id="cicd" n={4} title="CI/CD & cloud" future>
@@ -164,6 +180,17 @@ export default function HowItWorks() {
         </ul>
       </Section>
     </div>
+  );
+}
+
+function Decisions({ rows }: { rows: string[][] }) {
+  return (
+    <table className="decisions-table">
+      <thead><tr><th>Decision</th><th>Why</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        {rows.map(([d, why, t]) => <tr key={d}><td>{d}</td><td>{why}</td><td>{t}</td></tr>)}
+      </tbody>
+    </table>
   );
 }
 

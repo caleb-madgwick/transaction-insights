@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 import db
-from importer import MAX_BYTES
-from models import Transaction
+from importer import MAX_BYTES, MAX_ROWS
+from models import MAX_AMOUNT_CENTS, Transaction
 
 FIXTURES = Path(__file__).parent.parent.parent / "sample-data" / "fixtures"
 
@@ -231,3 +231,54 @@ def test_imported_datasets_are_isolated(client):
     assert all(t["dataset_id"] == first for t in transactions(client, first))
     assert all(t["dataset_id"] == second for t in transactions(client, second))
     assert len(transactions(client, first)) == len(transactions(client, second)) == 3
+
+
+# --- Monetary limits (MAX_AMOUNT_CENTS = $1,000,000,000.00) ---
+
+SIGNED = "date,company,amount\n2026-07-01,Co,{}\n"
+DIRECTED = "date,company,direction,amount\n2026-07-01,Co,{},{}\n"
+
+
+@pytest.mark.parametrize("csv, direction", [
+    (SIGNED.format("+1000000000.00"), "INCOMING"),
+    (SIGNED.format("-1000000000.00"), "OUTGOING"),
+    (SIGNED.format("+0001000000000"), "INCOMING"),  # leading zeros are not counted as size
+    (DIRECTED.format("OUTGOING", "1000000000.00"), "OUTGOING"),
+])
+def test_maximum_amount_accepted(client, csv, direction):
+    response = post(client, "/datasets", csv.encode())
+    assert response.status_code == 201, response.text
+    [row] = transactions(client, response.json()["dataset_id"])
+    assert (row["direction"], row["amount_cents"]) == (direction, MAX_AMOUNT_CENTS)
+
+
+@pytest.mark.parametrize("csv", [
+    SIGNED.format("+1000000000.01"),
+    SIGNED.format("-1000000000.01"),
+    DIRECTED.format("INCOMING", "1000000000.01"),
+    SIGNED.format("-99999999999999999999.99"),             # beyond SQLite INTEGER
+    DIRECTED.format("OUTGOING", "9" * 100_000),           # very long number
+])
+def test_over_limit_amount_rejected_by_preview_and_import(client, csv):
+    preview = post(client, "/datasets/preview", csv.encode())
+    assert preview.status_code == 200
+    assert not preview.json()["valid"]
+    assert preview.json()["errors"] == [
+        {"row": 2, "field": "amount", "message": "Amount must not exceed $1,000,000,000.00."}]
+
+    response = post(client, "/datasets", csv.encode())
+    assert response.status_code == 422
+    assert response.json()["detail"]["errors"] == preview.json()["errors"]
+    assert client.get("/datasets").json()["datasets"] == []
+    assert stored(client) == (0, 0)
+
+
+def test_maximum_dataset_totals_stay_exact_in_javascript(client):
+    # 5,000 rows (the import limit) at the maximum amount, half each way.
+    rows = "".join(f"2026-07-01,Co,{'-' if i % 2 else ''}1000000000.00\n" for i in range(MAX_ROWS))
+    dataset_id = post(client, "/datasets", f"date,company,amount\n{rows}".encode()).json()["dataset_id"]
+    summary = client.get(f"/datasets/{dataset_id}/summary").json()
+    half = MAX_ROWS // 2 * MAX_AMOUNT_CENTS
+    assert summary["total_income_cents"] == summary["total_expenses_cents"] == half
+    assert stored(client) == (MAX_ROWS, MAX_ROWS * MAX_AMOUNT_CENTS)
+    assert MAX_ROWS * MAX_AMOUNT_CENTS <= 2**53 - 1  # Number.MAX_SAFE_INTEGER

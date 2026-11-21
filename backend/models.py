@@ -13,6 +13,11 @@ CATEGORIES = (
     "Marketing", "Software", "Insurance", "Travel", "Fees",
 )
 
+# Largest single transaction: $1,000,000,000.00. With the 5,000-row import limit a dataset total
+# is at most 5 × 10^14 cents, well inside SQLite INTEGER (2^63 − 1) and JavaScript's exact
+# integer range (Number.MAX_SAFE_INTEGER ≈ 9 × 10^15).
+MAX_AMOUNT_CENTS = 100_000_000_000
+
 
 def iso_date_string(value: object) -> object:
     # Pydantic would otherwise accept Unix timestamps and datetimes as dates.
@@ -33,7 +38,7 @@ class Transaction(BaseModel):
     company: str = Field(min_length=1)
     category: str | None = None
     direction: Literal["INCOMING", "OUTGOING"]
-    amount_cents: int = Field(gt=0, strict=True)
+    amount_cents: int = Field(gt=0, le=MAX_AMOUNT_CENTS, strict=True)
     currency: Literal["AUD"] = "AUD"
 
     @field_validator("category")

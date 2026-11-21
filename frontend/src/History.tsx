@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, countLabel, errorText, formatDate, formatMoney, UNCATEGORISED } from "./api";
+import { api, countLabel, errorText, formatDate, formatMoney, isRejection, UNCATEGORISED } from "./api";
 import type { Transaction, TransactionFilters } from "./api";
 
 const NO_FILTERS: TransactionFilters = { category: "", direction: "" };
@@ -21,6 +21,7 @@ export default function History({ datasetId, name, total, categories, onChanged 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [unconfirmed, setUnconfirmed] = useState("");  // a save whose outcome is unknown
 
   useEffect(() => {
     let current = true;  // ignore responses for filters or a dataset that are no longer selected
@@ -48,11 +49,23 @@ export default function History({ datasetId, name, total, categories, onChanged 
 
   function setFilter(key: keyof TransactionFilters, value: string) {
     setNotice("");
+    setUnconfirmed("");
     setFilters({ ...filters, [key]: value });
   }
 
   function saved(t: Transaction, category: string) {
+    setUnconfirmed("");
     setNotice(`${t.company} (${formatDate(t.date)}) is now categorised as ${category}.`);
+    setVersion((v) => v + 1);
+    onChanged();
+  }
+
+  // No answer from the server: the change may or may not be saved, so reload what the server has.
+  function notConfirmed(t: Transaction, category: string) {
+    setNotice("");
+    setUnconfirmed(`Could not confirm whether ${t.company} (${formatDate(t.date)}) was saved as ${category}. ` +
+      "The list has been reloaded from the server; check its category and save again if needed. " +
+      "Saving the same category twice is safe.");
     setVersion((v) => v + 1);
     onChanged();
   }
@@ -82,7 +95,8 @@ export default function History({ datasetId, name, total, categories, onChanged 
             Filters
             {activeCount > 0 && <span className="filter-count">{activeCount}</span>}
           </span>
-          <button className="filter-clear" onClick={() => { setNotice(""); setFilters(NO_FILTERS); }} disabled={!filtered}>
+          <button className="filter-clear" onClick={() => { setNotice(""); setUnconfirmed(""); setFilters(NO_FILTERS); }}
+                  disabled={!filtered}>
             Clear all
           </button>
         </div>
@@ -118,6 +132,7 @@ export default function History({ datasetId, name, total, categories, onChanged 
         <p className="banner error">Approved categories could not be loaded, so categories can't be changed. Reload to try again.</p>
       )}
       {notice && <p className="banner success">{notice}</p>}
+      {unconfirmed && <p className="banner error">{unconfirmed}</p>}
       {error && <p className="banner error">{error}</p>}
 
       {rows === null ? (!error && <p className="muted">Loading transactions…</p>) : rows.length === 0 ? (
@@ -133,7 +148,8 @@ export default function History({ datasetId, name, total, categories, onChanged 
             </thead>
             <tbody>
               {rows.map((t) => (
-                <Row key={`${t.transaction_id}:${t.category}`} t={t} categories={categories} onSaved={saved} />
+                <Row key={`${t.transaction_id}:${t.category}`} t={t} categories={categories}
+                     onSaved={saved} onUnknown={notConfirmed} />
               ))}
             </tbody>
           </table>
@@ -143,8 +159,9 @@ export default function History({ datasetId, name, total, categories, onChanged 
   );
 }
 
-function Row({ t, categories, onSaved }: {
-  t: Transaction; categories: string[] | null; onSaved: (t: Transaction, category: string) => void;
+function Row({ t, categories, onSaved, onUnknown }: {
+  t: Transaction; categories: string[] | null;
+  onSaved: (t: Transaction, category: string) => void; onUnknown: (t: Transaction, category: string) => void;
 }) {
   const [choice, setChoice] = useState(t.category ?? "");
   const [saving, setSaving] = useState(false);
@@ -159,9 +176,14 @@ function Row({ t, categories, onSaved }: {
       await api.setCategory(t.dataset_id, t.transaction_id, choice);
       onSaved(t, choice);  // the list re-fetches; this row then remounts with the saved category
     } catch (e) {
-      setChoice(t.category ?? "");  // nothing changed on the server, so show the saved value again
-      setError(`Not saved: ${errorText(e)}`);
       setSaving(false);
+      if (isRejection(e)) {  // 4xx: the server refused the change, so show the saved value again
+        setChoice(t.category ?? "");
+        setError(`Not saved: ${errorText(e)}`);
+      } else {  // network failure or 5xx: the outcome is unknown, so reload rather than assume
+        setError(`Save not confirmed: ${errorText(e)}`);
+        onUnknown(t, choice);
+      }
     }
   }
 

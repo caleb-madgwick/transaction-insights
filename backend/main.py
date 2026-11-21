@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, Form, Path as PathParam, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 import db
 from importer import ALIAS_TO_FIELD, MAX_BYTES, api_error, normalise, parse_csv, parse_mapping
@@ -118,7 +118,21 @@ async def read_upload(file: UploadFile) -> bytes:
 
 @app.get("/health")
 def health():
+    """Liveness: the API process is answering. Does not touch the database."""
     return {"status": "ok"}
+
+
+@app.get("/ready")
+def ready():
+    """Readiness: the database opens and has the required tables. Read-only; no error details exposed."""
+    try:
+        with closing(db.connect()) as conn:
+            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    except sqlite3.Error:
+        tables = set()
+    if not {"datasets", "transactions", "category_audit"} <= tables:
+        return JSONResponse({"status": "unavailable"}, status_code=503)
+    return {"status": "ready"}
 
 
 @app.get("/datasets")

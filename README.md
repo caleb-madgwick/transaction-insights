@@ -25,11 +25,16 @@ npm ci
 npm run dev
 ```
 
-Open **http://localhost:5173**. API docs: http://127.0.0.1:8000/docs.
+Open the URL Vite prints (usually **http://localhost:5173**; Vite picks the next free port if that one is taken). The backend must be on port 8000, which the Vite proxy targets. API docs: http://127.0.0.1:8000/docs.
 
 ## Verify
 ```bash
-./verify.sh    # backend tests + TypeScript check + build; also runs in CI
+source backend/.venv/bin/activate   # backend venv must be active
+./verify.sh                         # backend tests + TypeScript check + build; same script runs in CI
+```
+Optional browser smoke test (not in CI; needs Google Chrome or `CHROME_PATH`, uses its own temporary DB and ports 8100/5273):
+```bash
+(cd scripts/browser-smoke && npm ci) && scripts/browser-smoke/run.sh
 ```
 
 ## Demo
@@ -42,7 +47,7 @@ On a fresh database:
 **Unhappy path:** choose **Invalid amount (Expected rejection)**. The row errors are listed, Run Insights stays disabled, and nothing is stored.
 
 ## CSV format
-UTF-8 `.csv`, ≤ 1 MB, ISO dates, AUD. Negative = expense, or add a `direction` column (`INCOMING`/`OUTGOING`). Blank category = needs review.
+UTF-8 `.csv`, ≤ 1 MB, ≤ 5,000 rows, ISO dates, AUD. Amounts $0.01 to $1,000,000,000.00, max 2 decimals. Negative = expense, or add a `direction` column (`INCOMING`/`OUTGOING`). Blank category = needs review.
 
 ```
 date,company,category,amount
@@ -53,7 +58,9 @@ date,company,category,amount
 ## Known limitations
 - Single-user local demo on SQLite; no authentication.
 - AUD only; fixed category list; no runtime AI.
-- Browser checks are not in CI; no production deployment.
+- Duplicate detection is exact file bytes plus transaction IDs within a file; no cross-dataset deduplication.
+- Audit trail is basic, not tamper-evident.
+- Browser smoke test is optional and not in CI; no production deployment.
 
 ## Evidence
 [Intent](evidence/intent.md) · [Design](evidence/design.md) · [Decisions](evidence/decisions.md) · [Verification](evidence/verify.md) · [Operations](evidence/operate.md) · [Agentic workflow](evidence/agentic-workflow.md)

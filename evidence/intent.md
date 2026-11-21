@@ -25,7 +25,7 @@ Transaction CSVs are inconsistent and often miss categories. Users need trustwor
 Auth, multi-currency, editing/deleting transactions, merging uploads, debit/credit column formats, date filters in the UI, live bank feeds, runtime AI, production deployment.
 
 ## Acceptance criteria
-All met. Verified by Pytest (P), the scratch browser test (B) or both; see [verify.md](verify.md).
+All met. Verified by Pytest (P), the browser smoke test (B) or both; see [verify.md](verify.md).
 
 | Criterion | Verified |
 |-----------|----------|
@@ -33,6 +33,7 @@ All met. Verified by Pytest (P), the scratch browser test (B) or both; see [veri
 | Non-CSV files rejected; missing required columns named | P, B |
 | Unknown headers → mapping → import succeeds | P, B |
 | Any invalid row rejects the whole file; nothing stored | P, B |
+| Amounts above $1,000,000,000.00 rejected the same way by preview and import | P |
 | Duplicate files and duplicate transaction IDs rejected | P, B |
 | Blank categories import as uncategorised | P |
 | Income, expenses, net exact and include uncategorised rows | P, B |
@@ -40,6 +41,7 @@ All met. Verified by Pytest (P), the scratch browser test (B) or both; see [veri
 | Written summary deterministic and never misleading on the largest category | P |
 | Review filters match the backend and are scoped to the dataset | P, B |
 | Category change approved-only, audited, totals unchanged | P, B |
+| Unconfirmed save never reported as "Not saved"; state reloaded | B |
 | Clear errors; no stale results; summary refreshes after review | B |
 | How It Works separates implemented from future designs | B |
 | `./verify.sh` passes locally and in CI | Local, CI |

@@ -8,7 +8,7 @@ from decimal import Decimal
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from models import CATEGORIES, Transaction
+from models import CATEGORIES, MAX_AMOUNT_CENTS, Transaction
 
 MAX_BYTES = 1_000_000
 MAX_ROWS = 5_000
@@ -26,6 +26,8 @@ ALIASES = {
 }
 ALIAS_TO_FIELD = {alias: field for field, aliases in ALIASES.items() for alias in aliases}
 AMOUNT_RE = re.compile(r"[+-]?[0-9]+(\.[0-9]{1,2})?")
+MAX_WHOLE_DIGITS = len(str(MAX_AMOUNT_CENTS // 100))
+TOO_LARGE = f"Amount must not exceed ${MAX_AMOUNT_CENTS // 100:,}.00."
 CATEGORY_BY_LOWER = {c.lower(): c for c in CATEGORIES}
 
 
@@ -98,6 +100,21 @@ def error(row: int | None, field: str | None, message: str) -> dict:
     return {"row": row, "field": field, "message": message}
 
 
+def parse_cents(text: str) -> int:
+    """Exact signed cents from '125.50' or '-125.50'. Raises ValueError with a readable message.
+    Over-long numbers are rejected before any Decimal conversion."""
+    if not AMOUNT_RE.fullmatch(text):
+        raise ValueError(f"'{text}' is not a valid amount (e.g. 125.50 or -125.50).")
+    if len(text.lstrip("+-").split(".")[0].lstrip("0")) > MAX_WHOLE_DIGITS:
+        raise ValueError(TOO_LARGE)
+    cents = int(Decimal(text) * 100)
+    if abs(cents) > MAX_AMOUNT_CENTS:
+        raise ValueError(TOO_LARGE)
+    if cents == 0:
+        raise ValueError("Amount must not be zero.")
+    return cents
+
+
 def parse_row(values: dict[str, str], row_id: str) -> tuple[Transaction | None, dict[str, str]]:
     """Validate one row. Returns (transaction, {}) or (None, {field: message})."""
     errors: dict[str, str] = {}
@@ -105,10 +122,10 @@ def parse_row(values: dict[str, str], row_id: str) -> tuple[Transaction | None, 
     signed = amount_text.startswith(("+", "-"))
     cents = direction = None
 
-    if not AMOUNT_RE.fullmatch(amount_text):
-        errors["amount"] = f"'{amount_text}' is not a valid amount (e.g. 125.50 or -125.50)."
-    elif (cents := int(Decimal(amount_text) * 100)) == 0:
-        errors["amount"] = "Amount must not be zero."
+    try:
+        cents = parse_cents(amount_text)
+    except ValueError as exc:
+        errors["amount"] = str(exc)
 
     if "direction" in values:
         direction = values["direction"].upper()
@@ -116,8 +133,8 @@ def parse_row(values: dict[str, str], row_id: str) -> tuple[Transaction | None, 
             errors["direction"] = f"'{values['direction']}' is ambiguous. Use INCOMING or OUTGOING."
         elif signed:
             errors["direction"] = "Amount must be unsigned when a direction column is used."
-    elif cents:
-        direction = "OUTGOING" if cents < 0 else "INCOMING"
+    else:  # from the sign, so an invalid amount reports one amount error, not a direction error too
+        direction = "OUTGOING" if amount_text.startswith("-") else "INCOMING"
 
     category = values.get("category") or None
     try:
