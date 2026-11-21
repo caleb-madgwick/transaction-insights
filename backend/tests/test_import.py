@@ -48,8 +48,8 @@ def test_explicit_direction_import(client):
     response = post(client, "/datasets", fixture("explicit-direction.csv"))
     assert response.status_code == 201
     rows = transactions(client, response.json()["dataset_id"])
-    assert [(t["direction"], t["amount_cents"]) for t in rows] == [
-        ("OUTGOING", 12550), ("INCOMING", 150000), ("OUTGOING", 200000)]
+    assert [(t["direction"], t["amount_cents"]) for t in rows] == [  # newest first
+        ("OUTGOING", 200000), ("INCOMING", 150000), ("OUTGOING", 12550)]
 
 
 def test_known_aliases_recognised(client):

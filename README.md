@@ -68,6 +68,36 @@ curl -F file=@sample-data/fixtures/unknown-headers.csv \
 
 Example files are in `sample-data/fixtures/`.
 
+## Summary, history and review
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /datasets/{id}/summary?start_date=&end_date=` | Totals, counts, income/expense by category, monthly, uncategorised count and amount, written summary |
+| `GET /datasets/{id}/transactions?start_date=&end_date=&category=&direction=` | History, newest first. `category=uncategorised` is the review queue. |
+| `PATCH /datasets/{id}/transactions/{tid}/category` | Body `{"category": "Supplies"}`. Approved values only; audited. |
+| `GET /categories` | Approved category list |
+
+- Dates are ISO `YYYY-MM-DD` and inclusive. All filters are optional and combine with AND.
+- Invalid values return 422.
+- Money is always integer cents.
+
+```bash
+curl -X POST localhost:8000/datasets/small-business/load
+curl "localhost:8000/datasets/1/transactions?category=uncategorised"
+curl -X PATCH localhost:8000/datasets/1/transactions/SB-005/category \
+     -H 'Content-Type: application/json' -d '{"category": "Supplies"}'
+curl "localhost:8000/datasets/1/summary?start_date=2026-03-01&end_date=2026-03-31"
+```
+
+```json
+{"total_income_cents": 641305, "total_expenses_cents": 662365, "net_cents": -21060,
+ "monthly": [{"month": "2026-03", "income_cents": 641305, "expenses_cents": 662365}],
+ "expenses_by_category": [{"category": "Wages", "amount_cents": 310000}, ...],
+ "uncategorised_count": 1,
+ "summary_text": "During the selected period, income was $6,413.05 and expenses were $6,623.65, resulting in negative net cash flow of $210.60. Wages was the largest expense category. 1 transaction requires review."}
+```
+
+Reassigning a category changes the category breakdowns, never the totals. A repeat of the same change is a no-op.
+
 ## Verification and CI
 - **Local:** from the repo root with the venv active, run `./verify.sh` (non-zero exit on failure).
 - **CI:** GitHub Actions runs `./verify.sh` on every push to `main` and every pull request targeting `main`.
@@ -81,7 +111,8 @@ Example files are in `sample-data/fixtures/`.
 | 1 Docs | Done |
 | 2 Backend + samples | Done |
 | 3 CSV import | Done |
-| 4–8 | Not started |
+| 4 Summary + review | Done |
+| 5–8 | Not started |
 
 ## Docs
 [Intent](evidence/intent.md) · [Design](evidence/design.md) · [Decisions](evidence/decisions.md) · [Verification](evidence/verify.md) · [Agentic workflow](evidence/agentic-workflow.md)

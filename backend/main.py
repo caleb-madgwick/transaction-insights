@@ -2,16 +2,24 @@
 import hashlib
 import sqlite3
 from contextlib import asynccontextmanager, closing
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, Form, Path as PathParam, UploadFile
 
 import db
 from importer import MAX_BYTES, api_error, parse_csv, parse_mapping
-from models import Transaction
+from models import CATEGORIES, CategoryUpdate, IsoDate, Transaction
+from summary import build_summary
 
 SAMPLE_DIR = Path(__file__).parent.parent / "sample-data"
 SAMPLES = {"small-business": "Small Business", "retail-business": "Retail Business"}
+UNCATEGORISED = "uncategorised"
+
+DatasetId = Annotated[int, PathParam(ge=1, le=2**63 - 1)]  # SQLite INTEGER range; else 422
+CategoryFilter = Literal[CATEGORIES + (UNCATEGORISED,)]
+Direction = Literal["INCOMING", "OUTGOING"]
 
 
 @asynccontextmanager
@@ -29,6 +37,33 @@ def sha256(content: bytes) -> str:
 
 def sample_bytes(sample_id: str) -> bytes:
     return (SAMPLE_DIR / f"{sample_id}.csv").read_bytes()
+
+
+def require_dataset(conn: sqlite3.Connection, dataset_id: int) -> None:
+    if not conn.execute("SELECT 1 FROM datasets WHERE dataset_id = ?", (dataset_id,)).fetchone():
+        raise api_error(404, "dataset_not_found", f"Dataset {dataset_id} does not exist")
+
+
+def where_clause(dataset_id: int, start_date=None, end_date=None, category=None, direction=None):
+    """SQL WHERE from fixed fragments; every value is a bound parameter."""
+    if start_date and end_date and start_date > end_date:
+        raise api_error(422, "invalid_date_range", "start_date must be on or before end_date.")
+    clauses, params = ["dataset_id = ?"], [dataset_id]
+    if start_date:
+        clauses.append("date >= ?")
+        params.append(start_date.isoformat())
+    if end_date:
+        clauses.append("date <= ?")
+        params.append(end_date.isoformat())
+    if category == UNCATEGORISED:
+        clauses.append("category IS NULL")
+    elif category:
+        clauses.append("category = ?")
+        params.append(category)
+    if direction:
+        clauses.append("direction = ?")
+        params.append(direction)
+    return " AND ".join(clauses), params
 
 
 async def read_upload(file: UploadFile) -> bytes:
@@ -125,17 +160,64 @@ def load_sample(sample_id: str):
             "transaction_count": count, "already_loaded": existing is not None}
 
 
+@app.get("/categories")
+def list_categories():
+    return {"categories": list(CATEGORIES)}
+
+
 @app.get("/datasets/{dataset_id}/transactions")
 def list_transactions(
-    dataset_id: int = PathParam(ge=1, le=2**63 - 1),  # SQLite INTEGER range; else 422
+    dataset_id: DatasetId,
+    start_date: IsoDate | None = None,
+    end_date: IsoDate | None = None,
+    category: CategoryFilter | None = None,
+    direction: Direction | None = None,
 ) -> list[Transaction]:
+    """Filters combine with AND. category=uncategorised is the review queue."""
+    where, params = where_clause(dataset_id, start_date, end_date, category, direction)
     with closing(db.connect()) as conn:
-        if not conn.execute(
-            "SELECT 1 FROM datasets WHERE dataset_id = ?", (dataset_id,)
-        ).fetchone():
-            raise api_error(404, "dataset_not_found", f"Dataset {dataset_id} does not exist")
+        require_dataset(conn, dataset_id)
         rows = conn.execute(
-            "SELECT * FROM transactions WHERE dataset_id = ? ORDER BY date, transaction_id",
-            (dataset_id,),
+            f"SELECT * FROM transactions WHERE {where} ORDER BY date DESC, transaction_id", params
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@app.get("/datasets/{dataset_id}/summary")
+def get_summary(dataset_id: DatasetId, start_date: IsoDate | None = None, end_date: IsoDate | None = None):
+    where, params = where_clause(dataset_id, start_date, end_date)
+    with closing(db.connect()) as conn:
+        require_dataset(conn, dataset_id)
+        rows = conn.execute(
+            f"SELECT date, category, direction, amount_cents FROM transactions WHERE {where}", params
+        ).fetchall()
+    filtered = start_date is not None or end_date is not None
+    return {"start_date": start_date, "end_date": end_date, **build_summary(rows, filtered)}
+
+
+@app.patch("/datasets/{dataset_id}/transactions/{transaction_id}/category")
+def update_category(dataset_id: DatasetId, transaction_id: str, update: CategoryUpdate) -> Transaction:
+    """Set an approved category. Update and audit row commit together; a no-op writes nothing."""
+    with closing(db.connect()) as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")  # lock before reading, so concurrent repeats can't double-audit
+        require_dataset(conn, dataset_id)
+        row = conn.execute(
+            "SELECT * FROM transactions WHERE dataset_id = ? AND transaction_id = ?",
+            (dataset_id, transaction_id),
+        ).fetchone()
+        if row is None:
+            raise api_error(404, "transaction_not_found",
+                            f"Transaction '{transaction_id}' not found in dataset {dataset_id}")
+        if row["category"] != update.category:
+            conn.execute(
+                "UPDATE transactions SET category = ? WHERE dataset_id = ? AND transaction_id = ?",
+                (update.category, dataset_id, transaction_id),
+            )
+            conn.execute(
+                """INSERT INTO category_audit
+                   (dataset_id, transaction_id, previous_category, new_category, changed_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (dataset_id, transaction_id, row["category"], update.category,
+                 datetime.now(timezone.utc).isoformat()),
+            )
+    return {**dict(row), "category": update.category}

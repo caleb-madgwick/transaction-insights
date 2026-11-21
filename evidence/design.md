@@ -10,10 +10,11 @@ React SPA → (`fetch`, JSON) → FastAPI → SQLite. One process, one database 
 
 ```
 backend/
-  main.py          routes, sample loading (+ summary in Stage 4)
+  main.py          routes, filters, sample loading, category review
   db.py            sqlite3 connection + schema
-  models.py        Transaction model + categories (shared; avoids circular imports)
+  models.py        Transaction model, ISO date type, categories (shared; avoids circular imports)
   importer.py      CSV parsing, aliases, mapping, validation (no DB access)
+  summary.py       summary calculations + written summary (no DB access)
   requirements.txt  pytest.ini  tests/
 frontend/src/      (Stage 5)
   App.tsx  Overview.tsx  History.tsx  HowItWorks.tsx  api.ts  styles.css
@@ -52,12 +53,12 @@ verify.sh          all automated checks (local + CI)
 | GET | `/health` | Health check | Done |
 | GET | `/datasets` | Samples + loaded datasets | Done |
 | POST | `/datasets/{sample_id}/load` | Load sample (idempotent) | Done |
-| GET | `/datasets/{id}/transactions` | List transactions | Done (filters: Stage 4) |
+| GET | `/datasets/{id}/transactions?start_date&end_date&category&direction` | Filtered list, newest first | Done |
 | POST | `/datasets/preview` | Validate CSV + mapping; saves nothing | Done |
 | POST | `/datasets` | Import CSV as new dataset (atomic) | Done |
-| GET | `/datasets/{id}/summary?start&end` | Totals, monthly, by category, text | Stage 4 |
-| PATCH | `/datasets/{id}/transactions/{tid}` | Set category (audited) | Stage 4 |
-| GET | `/categories` | Approved categories | Stage 4 |
+| GET | `/datasets/{id}/summary?start_date&end_date` | Totals, monthly, by category, text | Done |
+| PATCH | `/datasets/{id}/transactions/{tid}/category` | Set category (audited) | Done |
+| GET | `/categories` | Approved categories | Done |
 
 - Errors: `{"detail": {"code", "message", ...}}`, e.g. `dataset_not_found`, `mapping_required`, `invalid_rows`, `duplicate_file`.
 - Invalid path or body values: FastAPI's default 422.
@@ -80,10 +81,20 @@ verify.sh          all automated checks (local + CI)
 - **Transaction:** the `transaction_id` column if supplied (must be unique in the file; DB PK `(dataset_id, transaction_id)`), otherwise `row-<n>`.
 - Identical rows without IDs are kept as separate transactions, since repeats are legitimate.
 
-## Calculations and review (Stage 4)
-- Income = INCOMING, Expenses = OUTGOING, Net = Income − Expenses. Uncategorised included.
-- Integer cents only; fixed-template summary text.
-- Category change: approved value only, update + audit in one transaction.
+## Summary
+- Income = sum of INCOMING, Expenses = sum of OUTGOING, Net = Income − Expenses. Uncategorised rows included.
+- **One filtered query** feeds every figure: totals, counts, category breakdowns, monthly and text all use the same date range.
+- Category breakdowns: largest first, ties by name; uncategorised = `category: null`.
+- Monthly: every month from the first to the last month with data, gaps filled with 0.
+- Python `int` arithmetic only. The text is a fixed template covering positive, negative or zero net, no expenses, and empty data.
+
+## Filters and review
+- Filters (`start_date`, `end_date` inclusive ISO; `category`, which includes `uncategorised`; `direction`) combine with AND. Invalid values → 422; start > end → `invalid_date_range`.
+- WHERE clauses are built from fixed SQL fragments; every value is a bound parameter.
+- **Review queue:** `GET .../transactions?category=uncategorised`.
+- **Category update:** approved value only (422 otherwise). The transaction must exist in that dataset (404 otherwise).
+  - Runs as `BEGIN IMMEDIATE` → UPDATE + `category_audit` INSERT → commit.
+  - The same value again → 200, no new audit row.
 
 ## Security
 - Parameterised SQL, input validation, DB constraints.

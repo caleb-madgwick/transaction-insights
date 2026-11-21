@@ -32,11 +32,11 @@ Auth, multi-currency, editing/deleting transactions, merging uploads, debit/cred
 - [x] Any invalid row (date, amount, direction, currency, category) rejects the whole file.
 - [x] Duplicate files and duplicate transaction IDs rejected.
 - [x] Blank categories import as uncategorised.
-- [ ] Income, expenses, net are correct and include uncategorised rows.
-- [ ] Chart aggregates sum to totals.
-- [ ] Summary text is deterministic.
-- [ ] Filters work and are scoped to the dataset.
-- [ ] Category change saved with audit record; invalid category rejected.
+- [x] Income, expenses, net are correct and include uncategorised rows.
+- [x] Chart aggregates sum to totals.
+- [x] Summary text is deterministic.
+- [x] Filters work and are scoped to the dataset.
+- [x] Category change saved with audit record; invalid category rejected.
 - [ ] UI shows clear errors and refreshes summary after changes.
 - [ ] How It Works labels each item as implemented, verified or future.
 
