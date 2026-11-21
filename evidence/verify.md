@@ -2,57 +2,41 @@
 
 ## Command
 ```bash
-./verify.sh    # repo root; backend venv active and `npm ci` already run in frontend/
+./verify.sh    # repo root, backend venv active, `npm ci` already run
 ```
-It runs the backend Pytest suite, then `npm run build` in `frontend/` (`tsc --noEmit` type-check + Vite production build). Either failure gives a non-zero exit.
+Runs Pytest (132 tests, each on a temporary DB), then `npm run build` (`tsc` type-check + Vite build). Any failure → non-zero exit. CI (`.github/workflows/ci.yml`) runs the same script on every push and PR to `main` (Ubuntu, Python 3.13, Node 22, no secrets).
 
-CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR targeting `main`: one Ubuntu job with Python 3.13 + `pip install`, Node 22 + `npm ci`, then `./verify.sh`.
-
-## Automated checks (129 backend tests + frontend build)
-| Check | Covers |
+| Tests | Covers |
 |-------|--------|
-| `test_api.py` (32) | Model validation, health, sample loading, concurrent first loads, 404/422, foreign keys, isolation |
-| `test_import.py` (33) | CSV layouts, aliases, mapping, invalid values, duplicates, bad files, preview never saves, atomic rollback |
-| `test_summary.py` (28) | Exact totals, cents, months, breakdowns, one date range, net ±/0, empty data, filters |
-| `test_review.py` (11) | End-to-end review, audit contents, idempotency, rejected updates write no audit |
-| `test_examples.py` (25) | All 5 samples load; scenarios match descriptions; previews equal the real files; allowlist (traversal → 404); fixture labels match real outcomes; dataset origin (sample / fixture / upload) |
-| Frontend build | TypeScript strict type-check and production bundle |
+| `test_api.py` (32) | Models, health, sample loading, concurrent loads, 404/422, isolation |
+| `test_import.py` (33) | Layouts, mapping, invalid values, duplicates, bad files, atomic rollback |
+| `test_summary.py` (31) | Exact cents, totals, breakdowns, months, filters, written summary |
+| `test_review.py` (11) | Review flow, audit rows, idempotency, rejected updates |
+| `test_examples.py` (25) | Samples, fixture outcomes, allowlisted files, dataset origin |
 
-## Remote CI (GitHub Actions)
-| Stage | Commit | Result |
-|-------|--------|--------|
-| 3 | `6379105` | Passed, 64 tests ([run 44868403061](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44868403061)) |
-| 4 | `e05dae9` | Passed ([run 44869249995](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44869249995)) |
-| 5 | `1b36dfd4` | Passed: 104 tests + build ([run 44870924083](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44870924083)) |
-| 6 | `964b7c20` | Passed ([run 44871972807](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44871972807)) |
-| UX cleanup | `aa43e3833` | Passed: 128 tests + build ([run 44873451988](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44873451988)) |
-| 7 | Not pushed | Unverified |
+## Results
+| Check | Code | Result |
+|-------|------|--------|
+| GitHub Actions | `221bf33` | Passed, 129 tests + build ([run 44875040130](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44875040130)) |
+| Clean checkout: fresh clone, new venv, `pip install`, `npm ci`, `./verify.sh` | `221bf33` | 129 passed, build OK, exit 0 |
+| `./verify.sh` (macOS, Python 3.13.13, Node 22.9.0) | Stage 8 working tree | 132 passed, build OK, exit 0 |
+| Browser smoke test (headless Chrome, fresh DB) | Stage 8 working tree | 57/57 |
+| GitHub Actions | Stage 8 | Not yet pushed: unverified |
 
-## Stage 7 local results (21 Nov 2026, macOS, Python 3.13.13, Node 22.9.0)
-| Check | Result |
-|-------|--------|
-| `./verify.sh` | 129 passed, frontend build OK, exit 0 |
-| Guided Insights browser test (headless Chrome, scratch `puppeteer-core` script, live backend on a fresh DB) | 53/53 |
-| How It Works browser test (same setup) | 19/19 |
+**Browser test** (scratch `puppeteer-core` script, not committed):
+- **Happy path:** cards match the API; saving a category writes one audit row; "Needs review" goes 12 → 11; totals are unchanged.
+- **Unhappy paths:** invalid amount or date, missing column and unknown headers are rejected and nothing is stored. A duplicate upload is rejected with no success message. A failed save writes no audit row.
+- **Stale data:** switching source hides old results; slow older runs never overwrite newer ones.
+- **Filters and errors:** filters and their counts match the API. Backend down → "Cannot reach the server"; a 500 → a generic server error with no raw body.
+- **How It Works:** endpoints exist in OpenAPI; example JSON matches live responses.
+- **Earlier run:** at review time on `221bf33` the test scored 43/45. One fail was a bug in the test's pattern-matching (`/health,`); the other was a real stale test count (128). Both were fixed before the 57/57 run.
 
-**Guided Insights test:**
-- **Initial page:** no figures and no load or summary requests.
-- **Run Insights:** shows backend figures. A new source hides the previous results, and slow older runs never bring them back.
-- **Test scenarios:** each shows its real backend outcome. A valid scenario is imported once, then reused on re-run, and isn't listed under Imported datasets.
-- **Duplicates and uploads:** a duplicate upload is rejected; your own upload is listed under Imported datasets.
-- **Review filters:** Direction, Category, combined, Needs review and Clear all match API counts. There are no date inputs.
-- **Review saves:** a failed save keeps the category and writes no audit row. A successful save writes one audit row and leaves totals unchanged.
-- **Layout:** no overflow at 390 px; backend-down error; no console errors.
+**Attack probes (manual, live API):** `.exe` and `x.csv.exe` → 415; binary or zip renamed `.csv` → 400. SQL in CSV fields is stored as literal text and no tables are affected. SQL in path, query or body → 404/422. Path traversal → 404. `<img onerror>` in a company name renders as text, with no script run.
 
-**How It Works test:**
-- **Structure:** six labelled sections; implemented versus future labels correct.
-- **Diagram:** the architecture is an SVG diagram.
-- **Endpoints:** every endpoint shown exists in the backend's `/openapi.json`.
-- **Examples:** the JSON examples match live responses field by field.
-- **Facts:** the CI figure is shown with its source and date; no bank names; 552 words; no overflow at 390 px.
-
-## Limitations
-- The browser tests are scratch scripts and aren't in CI; there are no frontend unit tests.
-- No linting.
-- Tested on Python 3.13 and Node 22 only.
-- Bundle ~705 kB (~207 kB gzipped); Vite shows a size warning.
+## Gaps
+- Browser checks are scratch scripts, not in CI. No frontend unit tests. No linting.
+- Tested only on Python 3.13 and Node 22.
+- JS bundle 724.95 kB (214.02 kB gzipped); Vite warns about size.
+- No authentication, authorisation, rate limiting or monitoring.
+- The 1 MB upload limit is checked after the request is received; production needs a proxy limit.
+- `requirements.txt` pins direct dependencies only; transitive versions can drift.

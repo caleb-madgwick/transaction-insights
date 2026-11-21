@@ -84,9 +84,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new ApiError(UNREACHABLE);
   }
-  const body = await response.json().catch(() => null);
+  const text = await response.text().catch(() => "");
+  let body = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    // Not JSON: handled below.
+  }
   if (response.ok) return body as T;
-  if (body === null) throw new ApiError(UNREACHABLE);
+  if (body === null) {
+    // The Vite proxy answers with an empty 5xx when the backend is down; FastAPI's own crash page
+    // is the plain text "Internal Server Error". Neither body is shown to the user.
+    throw new ApiError(text === "" || response.status >= 502 ? UNREACHABLE
+      : `The server encountered an error (${response.status}). Try again, or check the backend log.`);
+  }
 
   const detail = body.detail;
   if (Array.isArray(detail)) {  // FastAPI validation error list

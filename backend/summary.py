@@ -69,11 +69,14 @@ def written_summary(s: dict, filtered: bool) -> str:
     sentences = [f"{period}, income was {money(s['total_income_cents'])} and expenses were "
                  f"{money(s['total_expenses_cents'])}, resulting in {outcome}."]
 
-    largest = next((c["category"] for c in s["expenses_by_category"] if c["category"]), None)
+    named = [c for c in s["expenses_by_category"] if c["category"]]
+    uncategorised = sum(c["amount_cents"] for c in s["expenses_by_category"] if c["category"] is None)
     if s["expense_count"] == 0:
         sentences.append("There were no expenses.")
-    elif largest:
-        sentences.append(f"{largest} was the largest expense category.")
+    elif named and named[0]["amount_cents"] > uncategorised:
+        sentences.append(f"{named[0]['category']} was the largest expense category.")
+    else:  # never name a category as largest when uncategorised expenses are as large or larger
+        sentences.append("Uncategorised expenses were at least as large as any single category.")
 
     n = s["uncategorised_count"]
     if n:

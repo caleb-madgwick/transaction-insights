@@ -200,6 +200,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .mini { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.85rem; }
 .mini p { margin: 4px 0 0; color: var(--muted); }
+.mini.gap { border: 1px dashed #c9ccd2; background: #fff4e0; }  /* proposed, not implemented */
 .pipeline { display: flex; flex-wrap: wrap; gap: 6px; }
 .pipeline span { font-size: 0.8rem; padding: 6px 10px; border-radius: 6px; border: 1px dashed #c9ccd2; color: var(--muted); }
 .pipeline span.done { border: 1px solid var(--green); background: #e9f5ef; color: #14563e; font-weight: 600; }
@@ -216,7 +217,36 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   .decisions-table tr { display: block; border-bottom: 1px solid var(--border); padding: 8px 0; }
 }
 
-/* Review filters */
-.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
-.filters .field select { min-width: 160px; }
-.button.secondary.active { border-color: var(--red); color: var(--red); background: #fdf3f3; }
+/* Review filters: one boxed panel */
+.filter-panel { background: var(--grey); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: grid; gap: 12px; }
+.filter-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.filter-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9rem; }
+.filter-title svg { width: 15px; height: 15px; fill: var(--charcoal); }
+.filter-count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--red); color: var(--white);
+  font-size: 0.72rem; display: inline-grid; place-items: center; }
+.filter-clear { border: 0; background: none; color: var(--red); font-size: 0.85rem; font-weight: 600; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.filter-clear:hover:not(:disabled) { background: #fdf3f3; }
+.filter-clear:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
+.filter-controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; }
+.filter-group { display: grid; gap: 6px; }
+.filter-label { font-size: 0.72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.segmented { display: inline-flex; background: var(--white); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+.segmented button { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-size: 0.85rem; color: var(--muted); cursor: pointer; }
+.segmented button:hover { color: var(--charcoal); }
+.segmented button.active { background: var(--charcoal); color: var(--white); }
+select.filter-select { appearance: none; -webkit-appearance: none; min-width: 190px; height: 36px; padding: 0 38px 0 14px;
+  border: 1px solid var(--border); border-radius: 999px; color: var(--charcoal); font-size: 0.85rem; cursor: pointer;
+  background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23242424' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 14px center / 12px 8px; }
+select.filter-select:disabled { opacity: 0.5; cursor: not-allowed; }
+.chip { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--white); color: var(--charcoal); font-size: 0.85rem; cursor: pointer; }
+.chip:hover { border-color: var(--red); }
+.chip.active { background: var(--red); border-color: var(--red); color: var(--white); }
+.chip-count { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: #fdecec; color: var(--red); font-size: 0.72rem; font-weight: 600; }
+.chip.active .chip-count { background: var(--white); }
+.segmented button:focus-visible, .chip:focus-visible, .filter-select:focus-visible, .filter-clear:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .filter-controls, .filter-group, .segmented, select.filter-select, .chip { width: 100%; }
+  .segmented button { flex: 1; }
+  .chip { justify-content: center; }
+}

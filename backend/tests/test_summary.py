@@ -112,6 +112,16 @@ def test_written_summary(client, import_csv):
         "2 transactions require review.")
 
 
+@pytest.mark.parametrize("uncategorised, sentence", [
+    ("5.00", "Uncategorised expenses were at least as large as any single category."),
+    ("1.00", "Uncategorised expenses were at least as large as any single category."),  # tie
+    ("0.50", "Rent was the largest expense category."),
+])
+def test_largest_category_never_hides_bigger_uncategorised(client, import_csv, uncategorised, sentence):
+    csv_text = f"date,company,category,amount\n2026-01-01,A,Rent,-1.00\n2026-01-02,B,,-{uncategorised}\n"
+    assert sentence in summary(client, import_csv(csv_text))["summary_text"]
+
+
 def test_zero_expenses(client, import_csv):
     s = summary(client, import_csv("date,company,category,amount\n2026-01-01,A,Sales,+10.00\n"))
     assert s["total_expenses_cents"] == 0 and s["expenses_by_category"] == []

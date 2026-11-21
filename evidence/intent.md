@@ -22,25 +22,24 @@ Transaction CSVs are inconsistent and often miss categories. Users need trustwor
 - Synthetic data, no runtime AI, 3-hour timebox.
 
 ## Out of scope
-Auth, multi-currency, editing/deleting transactions, merging uploads, debit/credit column formats, live bank feeds, runtime AI, cloud deployment.
+Auth, multi-currency, editing/deleting transactions, merging uploads, debit/credit column formats, date filters in the UI, live bank feeds, runtime AI, production deployment.
 
 ## Acceptance criteria
-- [x] Two sample datasets available; loading twice never duplicates.
-- [x] Non-CSV files rejected.
-- [x] Missing required columns named in error.
-- [x] Unknown headers → mapping prompt → import succeeds.
-- [x] Any invalid row (date, amount, direction, currency, category) rejects the whole file.
-- [x] Duplicate files and duplicate transaction IDs rejected.
-- [x] Blank categories import as uncategorised.
-- [x] Income, expenses, net are correct and include uncategorised rows.
-- [x] Chart aggregates sum to totals.
-- [x] Summary text is deterministic.
-- [x] Filters work and are scoped to the dataset.
-- [x] Category change saved with audit record; invalid category rejected.
-- [x] UI shows clear errors and refreshes summary after changes.
-- [x] How It Works labels each item as implemented, verified or future.
+All met. Verified by Pytest (P), the scratch browser test (B) or both; see [verify.md](verify.md).
 
-## Done when
-- Criteria met or gaps documented.
-- `pytest` and `npm run build` pass (real output recorded).
-- Runs locally from README.
+| Criterion | Verified |
+|-----------|----------|
+| 5 sample datasets load; loading twice never duplicates | P, B |
+| Non-CSV files rejected; missing required columns named | P, B |
+| Unknown headers → mapping → import succeeds | P, B |
+| Any invalid row rejects the whole file; nothing stored | P, B |
+| Duplicate files and duplicate transaction IDs rejected | P, B |
+| Blank categories import as uncategorised | P |
+| Income, expenses, net exact and include uncategorised rows | P, B |
+| Monthly and category breakdowns sum to totals | P |
+| Written summary deterministic and never misleading on the largest category | P |
+| Review filters match the backend and are scoped to the dataset | P, B |
+| Category change approved-only, audited, totals unchanged | P, B |
+| Clear errors; no stale results; summary refreshes after review | B |
+| How It Works separates implemented from future designs | B |
+| `./verify.sh` passes locally and in CI | Local, CI |

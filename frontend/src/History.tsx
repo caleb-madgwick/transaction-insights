@@ -3,6 +3,7 @@ import { api, countLabel, errorText, formatDate, formatMoney, UNCATEGORISED } fr
 import type { Transaction, TransactionFilters } from "./api";
 
 const NO_FILTERS: TransactionFilters = { category: "", direction: "" };
+const DIRECTIONS = [["", "All"], ["INCOMING", "Incoming"], ["OUTGOING", "Outgoing"]] as const;
 
 interface Props {
   datasetId: number;
@@ -56,7 +57,8 @@ export default function History({ datasetId, name, total, categories, onChanged 
     onChanged();
   }
 
-  const filtered = filters.category !== "" || filters.direction !== "";
+  const activeCount = Number(filters.category !== "") + Number(filters.direction !== "");
+  const filtered = activeCount > 0;
   const reviewing = filters.category === UNCATEGORISED;
 
   return (
@@ -73,30 +75,43 @@ export default function History({ datasetId, name, total, categories, onChanged 
         )}
       </div>
 
-      <div className="filters">
-        <label className="field">
-          <span>Direction</span>
-          <select value={filters.direction} onChange={(e) => setFilter("direction", e.target.value)}>
-            <option value="">All</option>
-            <option value="INCOMING">Incoming</option>
-            <option value="OUTGOING">Outgoing</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>Category</span>
-          <select value={reviewing ? "" : filters.category} onChange={(e) => setFilter("category", e.target.value)}
-                  disabled={reviewing}>
-            <option value="">All</option>
-            {categories?.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </label>
-        <button className={reviewing ? "button secondary active" : "button secondary"}
-                onClick={() => setFilter("category", reviewing ? "" : UNCATEGORISED)}>
-          Needs review
-        </button>
-        <button className="button link" onClick={() => { setNotice(""); setFilters(NO_FILTERS); }} disabled={!filtered}>
-          Clear filters
-        </button>
+      <div className="filter-panel" role="group" aria-label="Filter transactions">
+        <div className="filter-head">
+          <span className="filter-title">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12l-4.5 5.5V13l-3 1.5V8.5z" /></svg>
+            Filters
+            {activeCount > 0 && <span className="filter-count">{activeCount}</span>}
+          </span>
+          <button className="filter-clear" onClick={() => { setNotice(""); setFilters(NO_FILTERS); }} disabled={!filtered}>
+            Clear all
+          </button>
+        </div>
+        <div className="filter-controls">
+          <div className="filter-group">
+            <span className="filter-label">Direction</span>
+            <div className="segmented">
+              {DIRECTIONS.map(([value, label]) => (
+                <button key={label} className={filters.direction === value ? "active" : ""} aria-pressed={filters.direction === value}
+                        onClick={() => setFilter("direction", value)}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <label className="filter-group">
+            <span className="filter-label">Category</span>
+            <select className="filter-select" value={reviewing ? "" : filters.category}
+                    onChange={(e) => setFilter("category", e.target.value)} disabled={reviewing}>
+              <option value="">All categories</option>
+              {categories?.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </label>
+          <div className="filter-group">
+            <span className="filter-label">Status</span>
+            <button className={reviewing ? "chip active" : "chip"} aria-pressed={reviewing}
+                    onClick={() => setFilter("category", reviewing ? "" : UNCATEGORISED)}>
+              Needs review{reviewCount !== null && <span className="chip-count">{reviewCount}</span>}
+            </button>
+          </div>
+        </div>
       </div>
 
       {categories === null && (

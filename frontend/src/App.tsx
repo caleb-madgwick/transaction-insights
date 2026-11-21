@@ -132,7 +132,7 @@ export default function App() {
     } catch (e) {
       if (request !== run.current) return;
       setError(e instanceof ApiError && e.code === "duplicate_file"
-        ? "This file has already been imported. Choose it under Imported datasets in the Data source list."
+        ? "This file has already been imported. Choose the existing dataset, sample or test scenario in the Data source list."
         : errorText(e));
     } finally {
       if (request === run.current) setRunning(false);
