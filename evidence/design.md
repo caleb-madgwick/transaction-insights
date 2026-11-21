@@ -16,8 +16,11 @@ backend/
   importer.py      CSV parsing, aliases, mapping, validation (no DB access)
   summary.py       summary calculations + written summary (no DB access)
   requirements.txt  pytest.ini  tests/
-frontend/src/      (Stage 5)
-  App.tsx  Overview.tsx  History.tsx  HowItWorks.tsx  api.ts  styles.css
+frontend/
+  src/App.tsx      tabs, data source, date filter, Overview, CSV import (React state only)
+  src/api.ts       response types, one fetch wrapper, integer-cent money formatting
+  src/styles.css   all styles (CSS variables for the palette)
+  vite.config.ts   dev proxy: /api/* → FastAPI :8000
 sample-data/       small-business.csv, retail-business.csv (static, synthetic)
   fixtures/        small valid/invalid import examples
 verify.sh          all automated checks (local + CI)
@@ -29,10 +32,17 @@ verify.sh          all automated checks (local + CI)
 | Backend | Frontend |
 |---------|----------|
 | fastapi, uvicorn, python-multipart (uploads) | react, react-dom, recharts |
-| pytest, httpx2 (TestClient) | vite 6, typescript, @vitejs/plugin-react |
+| pytest, httpx2 (TestClient) | vite 6, typescript 5.9, @vitejs/plugin-react 4.7 |
 
-- Vite 6: local Node 22.9 is too old for Vite 7.
+- Vite 6 and plugin-react 4.7: local Node 22.9 is too old for Vite 7+ and plugin-react 5+.
 - httpx2: Starlette deprecates httpx for its test client.
+
+## Frontend
+- Shows only backend figures: summary cards, charts and text all come from one `/summary` response, and the frontend does no money arithmetic.
+- **Stale responses:** a summary response is ignored if the dataset or dates changed while it was loading, and only the newest preview request updates the import panel.
+- **Failed imports:** the selected dataset and dashboard stay as they are. Row errors come from the backend.
+- **Mapping:** choosing a field for one column removes it from any other, and every change re-runs the preview.
+- **First load:** sample loading is idempotent and serialised (`BEGIN IMMEDIATE`), so React StrictMode's double request can't fail.
 
 ## Data model
 

@@ -1,4 +1,5 @@
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 
 import pytest
@@ -6,7 +7,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 import db
-from main import app
+from main import app, load_sample
 from models import Transaction
 
 VALID = {
@@ -94,6 +95,14 @@ def test_loading_twice_does_not_duplicate(client):
     assert second["already_loaded"] is True
     assert second["transaction_count"] == first["transaction_count"] == 52
     assert len(datasets) == 1
+
+
+def test_concurrent_first_loads_create_one_dataset(client):
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(lambda _: load_sample("small-business"), range(8)))
+    assert {r["dataset_id"] for r in results} == {1}
+    assert sum(not r["already_loaded"] for r in results) == 1
+    assert len(client.get("/datasets").json()["datasets"]) == 1
 
 
 def test_unknown_dataset_returns_404(client):

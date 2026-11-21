@@ -142,6 +142,7 @@ def load_sample(sample_id: str):
 
     with closing(db.connect()) as conn:
         with conn:  # one transaction: dataset and all rows, or nothing
+            conn.execute("BEGIN IMMEDIATE")  # serialise concurrent first loads (e.g. React StrictMode)
             existing = conn.execute(
                 "SELECT dataset_id FROM datasets WHERE file_sha256 = ?", (sha256(content),)
             ).fetchone()

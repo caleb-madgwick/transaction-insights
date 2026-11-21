@@ -2,10 +2,10 @@
 
 Lightweight financial dashboard: import transactions, view income and expenses, fix missing categories. Synthetic data only.
 
-## Features (planned)
-- **Overview:** totals, charts, summary, date filter, upload.
-- **History:** filterable table, assign missing categories.
-- **How It Works:** interactive engineering walkthrough.
+## Features
+- **Overview** (done): totals, net cash flow, review count, monthly and category charts, written summary, date filter, dataset selection, CSV upload with column mapping.
+- **History** (Stage 6): filterable table, assign missing categories.
+- **How It Works** (Stage 7): interactive engineering walkthrough.
 
 ## Stack
 React + TypeScript + Vite · FastAPI + Pydantic · SQLite · Recharts · Pytest
@@ -33,6 +33,20 @@ pip install -r requirements.txt
 - The database is created at `backend/transaction_insights.db` and is git-ignored.
 
 **Test:** `pytest` (each test uses its own temporary database).
+
+## Frontend setup
+Requires Node.js 22.
+
+```bash
+cd frontend
+npm ci
+npm run dev        # http://localhost:5173
+```
+
+- **Run both:** start the backend (`uvicorn main:app --reload` in `backend/`) and the frontend in two terminals, then open http://localhost:5173. Vite forwards `/api/*` to the backend on port 8000.
+- **Samples:** the app loads Small Business on first open. Switch with **Data source** (Small Business, Retail Business, or any imported dataset).
+- **Upload:** click **Import CSV** and choose a file. The detected column mapping is shown; change any column with the dropdowns (or set it to *Ignore*). Row-level errors are listed. **Import** is enabled once the preview is valid, and the new dataset is then selected.
+- **Date filter:** **From** / **To** update every card and chart through the backend summary; **Clear** resets them.
 
 ## CSV import
 Two layouts are supported (UTF-8, ≤ 1 MB, ≤ 5,000 rows, ISO dates, AUD):
@@ -99,9 +113,9 @@ curl "localhost:8000/datasets/1/summary?start_date=2026-03-01&end_date=2026-03-3
 Reassigning a category changes the category breakdowns, never the totals. A repeat of the same change is a no-op.
 
 ## Verification and CI
-- **Local:** from the repo root with the venv active, run `./verify.sh` (non-zero exit on failure).
-- **CI:** GitHub Actions runs `./verify.sh` on every push to `main` and every pull request targeting `main`.
-- **Checks:** the backend Pytest suite. Frontend build checks are added in Stage 5.
+- **Local:** from the repo root, with the venv active and `npm ci` already run in `frontend/`, run `./verify.sh` (non-zero exit on failure).
+- **CI:** GitHub Actions installs both dependency sets and runs `./verify.sh` on every push to `main` and every pull request targeting `main`.
+- **Checks:** the backend Pytest suite, then the frontend `npm run build` (TypeScript type-check + production bundle).
 - Details: [evidence/verify.md](evidence/verify.md).
 
 ## Status
@@ -112,7 +126,8 @@ Reassigning a category changes the category breakdowns, never the totals. A repe
 | 2 Backend + samples | Done |
 | 3 CSV import | Done |
 | 4 Summary + review | Done |
-| 5–8 | Not started |
+| 5 Frontend + Overview | Done |
+| 6–8 | Not started |
 
 ## Docs
 [Intent](evidence/intent.md) · [Design](evidence/design.md) · [Decisions](evidence/decisions.md) · [Verification](evidence/verify.md) · [Agentic workflow](evidence/agentic-workflow.md)

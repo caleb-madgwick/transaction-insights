@@ -1,0 +1,87 @@
+:root {
+  --red: #d71920;
+  --white: #ffffff;
+  --charcoal: #242424;
+  --grey: #f5f6f8;
+  --border: #e3e5e9;
+  --muted: #6b7280;
+  --green: #1e7f5c;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--charcoal);
+  background: var(--grey);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+h2 { font-size: 0.95rem; font-weight: 600; margin: 0 0 12px; }
+button, input, select { font: inherit; }
+
+.header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  padding: 14px 32px; background: var(--white); border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+.mark { width: 14px; height: 14px; border-radius: 3px; background: var(--red); }
+.tabs { display: flex; gap: 4px; }
+.tab {
+  border: 0; background: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; color: var(--muted);
+}
+.tab:hover { background: var(--grey); }
+.tab.active { color: var(--charcoal); font-weight: 600; box-shadow: inset 0 -2px 0 var(--red); border-radius: 0; }
+
+.content { max-width: 1200px; margin: 0 auto; padding: 24px 32px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+.muted { color: var(--muted); font-size: 0.875rem; margin: 0; }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+.dates { display: flex; align-items: flex-end; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+.field { display: grid; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+.field select, .field input, .mapping select {
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--white);
+  color: var(--charcoal); min-width: 180px;
+}
+
+.button { padding: 9px 16px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; }
+.button:disabled { opacity: 0.5; cursor: not-allowed; }
+.button.primary { background: var(--red); color: var(--white); }
+.button.secondary { background: var(--white); border-color: var(--border); }
+.button.link { background: none; color: var(--muted); text-decoration: underline; padding: 9px 4px; }
+
+.banner { margin: 0; padding: 12px 16px; border-radius: 8px; font-size: 0.9rem; }
+.banner.error { background: #fdecec; color: #8a1116; border: 1px solid #f5c2c4; }
+.banner.success { background: #e9f5ef; color: #14563e; border: 1px solid #bfe3d1; }
+
+.overview { display: grid; gap: 20px; transition: opacity 0.15s; }
+.overview.stale { opacity: 0.55; }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.stat { display: grid; gap: 6px; }
+.stat-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-value { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat.positive .stat-value { color: var(--green); }
+.stat.negative .stat-value, .stat.attention .stat-value { color: var(--red); }
+.summary-text p { margin: 0; line-height: 1.6; }
+.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.placeholder { text-align: center; padding: 48px; }
+.recharts-wrapper :focus { outline: none; }  /* charts are display-only; no focus ring on click */
+
+.import { display: grid; gap: 14px; }
+.import h2 { margin: 0; }
+.mapping { border-collapse: collapse; width: 100%; max-width: 520px; font-size: 0.9rem; }
+.mapping th, .mapping td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.mapping th { color: var(--muted); font-weight: 500; }
+.status { margin: 0; font-size: 0.9rem; color: #8a5a00; }
+.status.ok { color: var(--green); }
+.row-errors { margin: 0; padding-left: 20px; font-size: 0.875rem; color: #8a1116; display: grid; gap: 4px; }
+.actions { display: flex; gap: 12px; }
+
+@media (max-width: 900px) {
+  .cards { grid-template-columns: repeat(2, 1fr); }
+  .charts { grid-template-columns: 1fr; }
+  .dates { margin-left: 0; }
+}
+@media (max-width: 560px) {
+  .header, .content { padding-left: 16px; padding-right: 16px; }
+  .cards { grid-template-columns: 1fr; }
+  .field select, .field input { min-width: 0; width: 100%; }
+  .toolbar > *, .dates, .dates .field { width: 100%; }
+}
