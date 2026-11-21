@@ -18,6 +18,8 @@ backend/
 frontend/src/      (Stage 5)
   App.tsx  Overview.tsx  History.tsx  HowItWorks.tsx  api.ts  styles.css
 sample-data/       small-business.csv, retail-business.csv (static, synthetic)
+verify.sh          all automated checks (local + CI)
+.github/workflows/ci.yml
 ```
 
 ## Dependencies

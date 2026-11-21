@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      # Frontend (later stage): add actions/setup-node, then
+      # `npm ci` and `npm run build` in frontend/ (or inside verify.sh).
+
+      - name: Verify
+        run: ./verify.sh

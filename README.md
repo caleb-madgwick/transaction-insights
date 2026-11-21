@@ -34,6 +34,12 @@ pip install -r requirements.txt
 
 **Test:** `pytest` (each test uses its own temporary database).
 
+## Verification and CI
+- **Local:** from the repo root with the venv active, run `./verify.sh` (non-zero exit on failure).
+- **CI:** GitHub Actions runs `./verify.sh` on every push to `main` and every pull request targeting `main`.
+- **Checks:** the backend Pytest suite. Frontend build checks are added in Stage 5.
+- Details: [evidence/verify.md](evidence/verify.md).
+
 ## Status
 
 | Stage | Status |
@@ -43,4 +49,4 @@ pip install -r requirements.txt
 | 3–8 | Not started |
 
 ## Docs
-[Intent](evidence/intent.md) · [Design](evidence/design.md) · [Decisions](evidence/decisions.md) · [Agentic workflow](evidence/agentic-workflow.md)
+[Intent](evidence/intent.md) · [Design](evidence/design.md) · [Decisions](evidence/decisions.md) · [Verification](evidence/verify.md) · [Agentic workflow](evidence/agentic-workflow.md)
