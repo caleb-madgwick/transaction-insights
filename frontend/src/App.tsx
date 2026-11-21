@@ -2,21 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { api, ApiError, FIELDS, formatMoney } from "./api";
+import { api, ApiError, countLabel as count, errorText, FIELDS, formatMoney, formatMonth } from "./api";
 import type { DatasetList, ImportResult, Preview, Summary } from "./api";
+import History from "./History";
 
 const TABS = ["Overview", "History", "How It Works"] as const;
 type Tab = (typeof TABS)[number];
 const DEFAULT_SAMPLE = "small-business";
 
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 // Axis labels only; exact values use formatMoney.
 const axisMoney = (cents: number) =>
   new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", notation: "compact" }).format(cents / 100);
-const monthLabel = (month: string) =>
-  new Date(`${month}-01T00:00:00`).toLocaleDateString("en-AU", { month: "short", year: "2-digit" });
 const tooltipMoney = (value: unknown) => formatMoney(Number(value));
-const count = (n: number) => `${n} transaction${n === 1 ? "" : "s"}`;
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("Overview");
@@ -29,6 +26,8 @@ export default function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [categories, setCategories] = useState<string[] | null | undefined>(undefined);  // null = failed
+  const [refreshKey, setRefreshKey] = useState(0);  // bumped after a category change to re-fetch the summary
 
   function showDataset(id: number) {
     setSummary(null);  // never show one dataset's figures under another's name
@@ -37,32 +36,52 @@ export default function App() {
     setDatasetId(id);
   }
 
+  // Each selection (sample, existing dataset or finished import) takes a new number. An async
+  // step only applies its result if no newer selection has started; list fetches work the same way.
+  const selection = useRef(0);
+  const listRequest = useRef(0);
+
+  async function refreshList() {
+    const request = ++listRequest.current;
+    const latest = await api.datasets();
+    if (request === listRequest.current) setList(latest);
+  }
+
   async function selectSample(sampleId: string) {
+    const request = ++selection.current;
     setError("");
     setNotice("");
     try {
       const { dataset_id } = await api.loadSample(sampleId);  // idempotent
-      setList(await api.datasets());
-      showDataset(dataset_id);
+      await refreshList();
+      if (request === selection.current) showDataset(dataset_id);
     } catch (e) {
-      setError(errorText(e));
+      if (request === selection.current) setError(errorText(e));
     }
   }
 
+  function chooseDataset(id: number) {
+    selection.current++;
+    setNotice("");
+    showDataset(id);
+  }
+
   async function handleImported(result: ImportResult) {
+    const request = ++selection.current;
     setShowImport(false);
     setNotice(`Imported ${count(result.imported_count)} into "${result.name}" ` +
               `(${result.uncategorised_count} need review).`);
     try {
-      setList(await api.datasets());
+      await refreshList();
     } catch (e) {
       setError(errorText(e));
     }
-    showDataset(result.dataset_id);
+    if (request === selection.current) showDataset(result.dataset_id);
   }
 
   useEffect(() => {
     selectSample(DEFAULT_SAMPLE);
+    api.categories().then((r) => setCategories(r.categories)).catch(() => setCategories(null));
   }, []);
 
   useEffect(() => {
@@ -82,7 +101,7 @@ export default function App() {
     return () => {
       current = false;
     };
-  }, [datasetId, startDate, endDate]);
+  }, [datasetId, startDate, endDate, refreshKey]);
 
   const sampleFor = (id: number | null) => list?.samples.find((s) => s.dataset_id === id && id !== null);
   const imported = list?.datasets.filter((d) => !sampleFor(d.dataset_id)) ?? [];
@@ -91,10 +110,7 @@ export default function App() {
   function changeSource(value: string) {
     const [kind, id] = value.split(":");
     if (kind === "sample") selectSample(id);
-    else {
-      setNotice("");
-      showDataset(Number(id));
-    }
+    else chooseDataset(Number(id));
   }
 
   return (
@@ -158,7 +174,11 @@ export default function App() {
           loading && !summary ? <p className="muted">Loading summary…</p>
             : summary && <Overview summary={summary} stale={loading} />
         )}
-        {tab === "History" && <Placeholder text="Transaction history and category review arrive in Stage 6." />}
+        {tab === "History" && datasetId !== null && categories !== undefined && (
+          <History key={datasetId} datasetId={datasetId} categories={categories}
+                   total={list?.datasets.find((d) => d.dataset_id === datasetId)?.transaction_count ?? null}
+                   onChanged={() => setRefreshKey((k) => k + 1)} />
+        )}
         {tab === "How It Works" && <Placeholder text="The engineering walkthrough arrives in Stage 7." />}
       </main>
     </div>
@@ -196,9 +216,9 @@ function Overview({ summary: s, stale }: { summary: Summary; stale: boolean }) {
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={s.monthly} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="#e6e8ec" vertical={false} />
-                <XAxis dataKey="month" tickFormatter={monthLabel} tick={{ fontSize: 12 }} />
+                <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fontSize: 12 }} />
                 <YAxis tickFormatter={axisMoney} tick={{ fontSize: 12 }} width={64} />
-                <Tooltip formatter={tooltipMoney} labelFormatter={(m) => monthLabel(String(m))} />
+                <Tooltip formatter={tooltipMoney} labelFormatter={(m) => formatMonth(String(m))} />
                 <Legend />
                 <Line type="monotone" dataKey="income_cents" name="Income" stroke="#1e7f5c" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
                 <Line type="monotone" dataKey="expenses_cents" name="Expenses" stroke="#242424" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
@@ -269,6 +289,8 @@ function CsvImport({ onImported }: { onImported: (result: ImportResult) => void 
   }
 
   function chooseFile(f: File | null) {
+    latest.current++;  // any file change (or clearing it) cancels pending previews
+    setBusy(false);
     setFile(f);
     setPreview(null);
     setMapping(null);

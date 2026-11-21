@@ -34,7 +34,22 @@ export interface Preview {
   error_count: number;
   errors: RowError[];
 }
+export interface Transaction {
+  transaction_id: string;
+  dataset_id: number;
+  date: string;
+  company: string;
+  category: string | null;
+  direction: "INCOMING" | "OUTGOING";
+  amount_cents: number;
+  currency: string;
+}
+export interface TransactionFilters { start_date: string; end_date: string; category: string; direction: string }
+
 export interface ImportResult { dataset_id: number; name: string; imported_count: number; uncategorised_count: number }
+
+// Category filter value the backend uses for "no category" (the review queue).
+export const UNCATEGORISED = "uncategorised";
 
 // Canonical fields accepted by the backend importer (importer.ALIASES).
 export const FIELDS = ["date", "company", "amount", "direction", "category", "currency", "transaction_id"];
@@ -65,6 +80,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   throw new ApiError(detail?.message ?? `Request failed (${response.status}).`, detail?.errors ?? []);
 }
 
+// Only non-empty values become query parameters.
+const query = (params: Record<string, string>) =>
+  new URLSearchParams(Object.entries(params).filter(([, value]) => value)).toString();
+
 function csvForm(file: File, mapping: Record<string, string> | null): FormData {
   const form = new FormData();
   form.append("file", file);
@@ -76,17 +95,30 @@ export const api = {
   datasets: () => request<DatasetList>("/datasets"),
   loadSample: (sampleId: string) =>
     request<{ dataset_id: number }>(`/datasets/${sampleId}/load`, { method: "POST" }),
-  summary: (datasetId: number, startDate: string, endDate: string) => {
-    const params = new URLSearchParams();
-    if (startDate) params.set("start_date", startDate);
-    if (endDate) params.set("end_date", endDate);
-    return request<Summary>(`/datasets/${datasetId}/summary?${params}`);
-  },
+  summary: (datasetId: number, startDate: string, endDate: string) =>
+    request<Summary>(`/datasets/${datasetId}/summary?${query({ start_date: startDate, end_date: endDate })}`),
+  transactions: (datasetId: number, filters: Partial<TransactionFilters>) =>
+    request<Transaction[]>(`/datasets/${datasetId}/transactions?${query(filters)}`),
+  categories: () => request<{ categories: string[] }>("/categories"),
+  setCategory: (datasetId: number, transactionId: string, category: string) =>
+    request<Transaction>(`/datasets/${datasetId}/transactions/${encodeURIComponent(transactionId)}/category`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category }),
+    }),
   preview: (file: File, mapping: Record<string, string> | null) =>
     request<Preview>("/datasets/preview", { method: "POST", body: csvForm(file, mapping) }),
   importCsv: (file: File, mapping: Record<string, string> | null) =>
     request<ImportResult>("/datasets", { method: "POST", body: csvForm(file, mapping) }),
 };
+
+export const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+export const countLabel = (n: number) => `${n} transaction${n === 1 ? "" : "s"}`;
+
+// Fixed three-letter months, parsed from the ISO string (no time zones): "2026-06-30" → "30 Jun 2026".
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const formatMonth = (yyyyMm: string) => `${MONTHS[Number(yyyyMm.slice(5, 7)) - 1]} ${yyyyMm.slice(2, 4)}`;
+export const formatDate = (iso: string) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
 
 export function formatMoney(cents: number): string {
   // Integer arithmetic only: whole dollars and remaining cents.

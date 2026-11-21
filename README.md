@@ -4,7 +4,7 @@ Lightweight financial dashboard: import transactions, view income and expenses, 
 
 ## Features
 - **Overview** (done): totals, net cash flow, review count, monthly and category charts, written summary, date filter, dataset selection, CSV upload with column mapping.
-- **History** (Stage 6): filterable table, assign missing categories.
+- **History** (done): transaction table (newest first), filters, needs-review highlighting, manual category assignment.
 - **How It Works** (Stage 7): interactive engineering walkthrough.
 
 ## Stack
@@ -47,6 +47,17 @@ npm run dev        # http://localhost:5173
 - **Samples:** the app loads Small Business on first open. Switch with **Data source** (Small Business, Retail Business, or any imported dataset).
 - **Upload:** click **Import CSV** and choose a file. The detected column mapping is shown; change any column with the dropdowns (or set it to *Ignore*). Row-level errors are listed. **Import** is enabled once the preview is valid, and the new dataset is then selected.
 - **Date filter:** **From** / **To** update every card and chart through the backend summary; **Clear** resets them.
+
+### History and category review
+- **Table:** shows the selected dataset's transactions, newest first: date, company, category, direction and amount in AUD.
+- **Filters:** From / To dates, Direction (All / Incoming / Outgoing) and Category (All / Uncategorised / any approved category) combine. **Needs review** is a quick filter for uncategorised rows, and **Clear filters** resets them all. All filtering is done by the backend.
+- **Counts:** "Showing X of Y transactions" for the current filters, plus how many in the whole dataset need review.
+- **Review:** uncategorised rows are highlighted. Pick a category from the dropdown on any row; **Save** appears only when the value changed. The backend validates the change and writes the audit record; on failure the row keeps its original category and shows the error.
+
+**Demo:**
+1. Open **History** and click **Needs review** (4 rows for Small Business).
+2. Choose a category for one row and click **Save**. The row leaves the list and the count drops to 3.
+3. Open **Overview**. Totals are unchanged, "Needs review" shows 3, and the category chart includes the change.
 
 ## CSV import
 Two layouts are supported (UTF-8, ≤ 1 MB, ≤ 5,000 rows, ISO dates, AUD):
@@ -127,7 +138,8 @@ Reassigning a category changes the category breakdowns, never the totals. A repe
 | 3 CSV import | Done |
 | 4 Summary + review | Done |
 | 5 Frontend + Overview | Done |
-| 6–8 | Not started |
+| 6 History + review | Done |
+| 7–8 | Not started |
 
 ## Docs
 [Intent](evidence/intent.md) · [Design](evidence/design.md) · [Decisions](evidence/decisions.md) · [Verification](evidence/verify.md) · [Agentic workflow](evidence/agentic-workflow.md)

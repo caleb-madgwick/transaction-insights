@@ -37,7 +37,7 @@ Auth, multi-currency, editing/deleting transactions, merging uploads, debit/cred
 - [x] Summary text is deterministic.
 - [x] Filters work and are scoped to the dataset.
 - [x] Category change saved with audit record; invalid category rejected.
-- [ ] UI shows clear errors and refreshes summary after changes.
+- [x] UI shows clear errors and refreshes summary after changes.
 - [ ] How It Works labels each item as implemented, verified or future.
 
 ## Done when

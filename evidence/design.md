@@ -18,6 +18,7 @@ backend/
   requirements.txt  pytest.ini  tests/
 frontend/
   src/App.tsx      tabs, data source, date filter, Overview, CSV import (React state only)
+  src/History.tsx  transaction table, filters, needs-review queue, category assignment
   src/api.ts       response types, one fetch wrapper, integer-cent money formatting
   src/styles.css   all styles (CSS variables for the palette)
   vite.config.ts   dev proxy: /api/* → FastAPI :8000
@@ -39,7 +40,15 @@ verify.sh          all automated checks (local + CI)
 
 ## Frontend
 - Shows only backend figures: summary cards, charts and text all come from one `/summary` response, and the frontend does no money arithmetic.
-- **Stale responses:** a summary response is ignored if the dataset or dates changed while it was loading, and only the newest preview request updates the import panel.
+- **Stale responses:**
+  - A summary or History response is ignored if the dataset or filters changed while it was loading.
+  - Each dataset selection (sample, existing dataset, or finished import) takes a sequence number, and a slow sample load can't override a newer selection.
+  - Dataset-list refreshes are newest-wins.
+  - Any file change, including clearing it, cancels pending previews.
+- **History:**
+  - Remounted per dataset, so the previous dataset's rows can never appear.
+  - The review count uses the existing `?category=uncategorised` filter.
+  - After a successful save, History re-fetches and App increments a refresh counter that re-runs the Overview summary request. No shared state library.
 - **Failed imports:** the selected dataset and dashboard stay as they are. Row errors come from the backend.
 - **Mapping:** choosing a field for one column removes it from any other, and every change re-runs the preview.
 - **First load:** sample loading is idempotent and serialised (`BEGIN IMMEDIATE`), so React StrictMode's double request can't fail.
