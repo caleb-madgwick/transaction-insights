@@ -1,6 +1,14 @@
 // Types mirror the FastAPI responses. All money values are integer cents.
 
-export interface Sample { sample_id: string; name: string; dataset_id: number | null }
+export interface Sample { sample_id: string; name: string; description: string; dataset_id: number | null }
+export interface Fixture { fixture_id: string; name: string; outcome: string; description: string }
+export interface CsvPreview {
+  file_name: string;
+  columns: string[];
+  rows: string[][];
+  row_count: number;
+  missing_category_count: number | null;  // null = file has no category column
+}
 export interface Dataset { dataset_id: number; name: string; created_at: string; transaction_count: number }
 export interface DatasetList { samples: Sample[]; datasets: Dataset[] }
 
@@ -44,18 +52,14 @@ export interface Transaction {
   amount_cents: number;
   currency: string;
 }
-export interface TransactionFilters { start_date: string; end_date: string; category: string; direction: string }
 
 export interface ImportResult { dataset_id: number; name: string; imported_count: number; uncategorised_count: number }
-
-// Category filter value the backend uses for "no category" (the review queue).
-export const UNCATEGORISED = "uncategorised";
 
 // Canonical fields accepted by the backend importer (importer.ALIASES).
 export const FIELDS = ["date", "company", "amount", "direction", "category", "currency", "transaction_id"];
 
 export class ApiError extends Error {
-  constructor(message: string, public errors: RowError[] = []) {
+  constructor(message: string, public errors: RowError[] = [], public code = "") {
     super(message);
   }
 }
@@ -77,12 +81,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (Array.isArray(detail)) {  // FastAPI validation error list
     throw new ApiError(detail.map((d: { loc: string[]; msg: string }) => `${d.loc.at(-1)}: ${d.msg}`).join("; "));
   }
-  throw new ApiError(detail?.message ?? `Request failed (${response.status}).`, detail?.errors ?? []);
+  throw new ApiError(detail?.message ?? `Request failed (${response.status}).`, detail?.errors ?? [], detail?.code ?? "");
 }
-
-// Only non-empty values become query parameters.
-const query = (params: Record<string, string>) =>
-  new URLSearchParams(Object.entries(params).filter(([, value]) => value)).toString();
 
 function csvForm(file: File, mapping: Record<string, string> | null): FormData {
   const form = new FormData();
@@ -95,11 +95,20 @@ export const api = {
   datasets: () => request<DatasetList>("/datasets"),
   loadSample: (sampleId: string) =>
     request<{ dataset_id: number }>(`/datasets/${sampleId}/load`, { method: "POST" }),
-  summary: (datasetId: number, startDate: string, endDate: string) =>
-    request<Summary>(`/datasets/${datasetId}/summary?${query({ start_date: startDate, end_date: endDate })}`),
-  transactions: (datasetId: number, filters: Partial<TransactionFilters>) =>
-    request<Transaction[]>(`/datasets/${datasetId}/transactions?${query(filters)}`),
+  summary: (datasetId: number) => request<Summary>(`/datasets/${datasetId}/summary`),
+  transactions: (datasetId: number) => request<Transaction[]>(`/datasets/${datasetId}/transactions`),
   categories: () => request<{ categories: string[] }>("/categories"),
+  fixtures: () => request<Fixture[]>("/fixtures"),
+  samplePreview: (sampleId: string) => request<CsvPreview>(`/samples/${sampleId}/preview`),
+  fixturePreview: (fixtureId: string) => request<CsvPreview>(`/fixtures/${fixtureId}/preview`),
+  // The real example file, so it goes through the same preview/import flow as an upload.
+  fixtureFile: async (fixtureId: string) => {
+    const response = await fetch(`/api/fixtures/${fixtureId}/file`).catch(() => {
+      throw new ApiError(UNREACHABLE);
+    });
+    if (!response.ok) throw new ApiError(`Could not load the example file (${response.status}).`);
+    return new File([await response.blob()], `${fixtureId}.csv`, { type: "text/csv" });
+  },
   setCategory: (datasetId: number, transactionId: string, category: string) =>
     request<Transaction>(`/datasets/${datasetId}/transactions/${encodeURIComponent(transactionId)}/category`, {
       method: "PATCH",

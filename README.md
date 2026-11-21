@@ -3,9 +3,11 @@
 Lightweight financial dashboard: import transactions, view income and expenses, fix missing categories. Synthetic data only.
 
 ## Features
-- **Overview** (done): totals, net cash flow, review count, monthly and category charts, written summary, date filter, dataset selection, CSV upload with column mapping.
-- **History** (done): transaction table (newest first), filters, needs-review highlighting, manual category assignment.
-- **How It Works** (Stage 7): interactive engineering walkthrough.
+- **Insights** (done): one page, three steps (Choose → Analyse → Review).
+  - Choose a sample, an imported dataset, a CSV test scenario or your own file, then click **Run Insights**.
+  - **Results:** totals, net cash flow, monthly and category charts, a written summary, and a transaction review table with category assignment.
+- **How It Works** (Stage 7): engineering walkthrough.
+- **Future:** filters in the review table (direction, category, date, needs-review only). The backend API already supports them.
 
 ## Stack
 React + TypeScript + Vite · FastAPI + Pydantic · SQLite · Recharts · Pytest
@@ -44,20 +46,20 @@ npm run dev        # http://localhost:5173
 ```
 
 - **Run both:** start the backend (`uvicorn main:app --reload` in `backend/`) and the frontend in two terminals, then open http://localhost:5173. Vite forwards `/api/*` to the backend on port 8000.
-- **Samples:** the app loads Small Business on first open. Switch with **Data source** (Small Business, Retail Business, or any imported dataset).
-- **Upload:** click **Import CSV** and choose a file. The detected column mapping is shown; change any column with the dropdowns (or set it to *Ignore*). Row-level errors are listed. **Import** is enabled once the preview is valid, and the new dataset is then selected.
-- **Date filter:** **From** / **To** update every card and chart through the backend summary; **Clear** resets them.
 
-### History and category review
-- **Table:** shows the selected dataset's transactions, newest first: date, company, category, direction and amount in AUD.
-- **Filters:** From / To dates, Direction (All / Incoming / Outgoing) and Category (All / Uncategorised / any approved category) combine. **Needs review** is a quick filter for uncategorised rows, and **Clear filters** resets them all. All filtering is done by the backend.
-- **Counts:** "Showing X of Y transactions" for the current filters, plus how many in the whole dataset need review.
-- **Review:** uncategorised rows are highlighted. Pick a category from the dropdown on any row; **Save** appears only when the value changed. The backend validates the change and writes the audit record; on failure the row keeps its original category and shows the error.
+### Guided workflow
+1. **Choose** from the single **Data source** list:
+   - **Sample datasets:** Small Business, Retail Business, Freelancer, Missing Categories, Cash Flow Challenge. **Preview CSV** shows the real file.
+   - **CSV import test scenarios:** the files in `sample-data/fixtures/`, labelled *Valid*, *Needs mapping*, *Needs review* or *Expected rejection*. Choosing one runs the real backend validation and shows the column mapping and any errors.
+   - **Imported datasets:** anything imported earlier.
+   - Or click **Import CSV** to use your own file ("Your file: …").
+2. **Run Insights.**
+   - Samples are loaded and analysed.
+   - CSV files are imported (all rows or none) and then analysed. It stays disabled until a file passes validation, so fix the mapping first if asked.
+   - Nothing is analysed before this click, and changing the source needs a new run.
+3. **Review** below the charts. Uncategorised rows are highlighted; pick a category and **Save**. The backend validates and audits the change, and the summary refreshes; totals never change.
 
-**Demo:**
-1. Open **History** and click **Needs review** (4 rows for Small Business).
-2. Choose a category for one row and click **Save**. The row leaves the list and the count drops to 3.
-3. Open **Overview**. Totals are unchanged, "Needs review" shows 3, and the category chart includes the change.
+**Demo:** choose *Missing Categories* → **Run Insights** → assign a category to a highlighted row → "Needs review" drops from 12 to 11 and the category chart updates.
 
 ## CSV import
 Two layouts are supported (UTF-8, ≤ 1 MB, ≤ 5,000 rows, ISO dates, AUD):
@@ -100,6 +102,8 @@ Example files are in `sample-data/fixtures/`.
 | `GET /datasets/{id}/transactions?start_date=&end_date=&category=&direction=` | History, newest first. `category=uncategorised` is the review queue. |
 | `PATCH /datasets/{id}/transactions/{tid}/category` | Body `{"category": "Supplies"}`. Approved values only; audited. |
 | `GET /categories` | Approved category list |
+| `GET /samples/{id}/preview` | First rows of a sample CSV (read-only, allowlisted) |
+| `GET /fixtures` · `GET /fixtures/{id}/preview` · `GET /fixtures/{id}/file` | CSV test scenarios: list with outcome labels, preview, raw file for the import flow |
 
 - Dates are ISO `YYYY-MM-DD` and inclusive. All filters are optional and combine with AND.
 - Invalid values return 422.
@@ -139,6 +143,7 @@ Reassigning a category changes the category breakdowns, never the totals. A repe
 | 4 Summary + review | Done |
 | 5 Frontend + Overview | Done |
 | 6 History + review | Done |
+| UX cleanup (guided workflow) | Done |
 | 7–8 | Not started |
 
 ## Docs

@@ -1,0 +1,43 @@
+transaction_id,date,company,category,direction,amount,currency
+CF-001,2026-01-05,Foundry Row Leasing,Rent,OUTGOING,3200.00,AUD
+CF-002,2026-01-09,Copperline Components,Inventory,OUTGOING,2650.00,AUD
+CF-003,2026-01-14,Orchard Hill Retail,Sales,INCOMING,3400.00,AUD
+CF-004,2026-01-20,Workshop Payroll,Wages,OUTGOING,2900.00,AUD
+CF-005,2026-01-26,Brightside Ads,Marketing,OUTGOING,350.00,AUD
+CF-006,2026-01-29,Juniper Homewares,Sales,INCOMING,2800.00,AUD
+CF-007,2026-01-31,Card Terminal Services,Fees,OUTGOING,62.40,AUD
+CF-008,2026-02-04,Foundry Row Leasing,Rent,OUTGOING,3200.00,AUD
+CF-009,2026-02-10,Orchard Hill Retail,Sales,INCOMING,4100.00,AUD
+CF-010,2026-02-13,Copperline Components,Inventory,OUTGOING,1480.00,AUD
+CF-011,2026-02-19,Workshop Payroll,Wages,OUTGOING,2900.00,AUD
+CF-012,2026-02-23,Juniper Homewares,Sales,INCOMING,3300.00,AUD
+CF-013,2026-02-26,Wattle Grid Energy,Utilities,OUTGOING,384.75,AUD
+CF-014,2026-02-27,Card Terminal Services,Fees,OUTGOING,58.10,AUD
+CF-015,2026-03-04,Foundry Row Leasing,Rent,OUTGOING,3200.00,AUD
+CF-016,2026-03-08,Orchard Hill Retail,Sales,INCOMING,5600.00,AUD
+CF-017,2026-03-12,Copperline Components,Inventory,OUTGOING,2100.00,AUD
+CF-018,2026-03-17,Juniper Homewares,Sales,INCOMING,3900.00,AUD
+CF-019,2026-03-20,Workshop Payroll,Wages,OUTGOING,2900.00,AUD
+CF-020,2026-03-25,Maple Street Markets,Sales,INCOMING,2300.00,AUD
+CF-021,2026-03-31,Card Terminal Services,Fees,OUTGOING,96.30,AUD
+CF-022,2026-04-02,Foundry Row Leasing,Rent,OUTGOING,3200.00,AUD
+CF-023,2026-04-07,Copperline Components,Inventory,OUTGOING,3350.00,AUD
+CF-024,2026-04-11,Trade Expo Events,Marketing,OUTGOING,1850.00,AUD
+CF-025,2026-04-15,Orchard Hill Retail,Sales,INCOMING,2900.00,AUD
+CF-026,2026-04-20,Workshop Payroll,Wages,OUTGOING,2900.00,AUD
+CF-027,2026-04-24,Juniper Homewares,Sales,INCOMING,2200.00,AUD
+CF-028,2026-04-28,Ironbark Insurance,Insurance,OUTGOING,1120.00,AUD
+CF-029,2026-05-05,Foundry Row Leasing,Rent,OUTGOING,3200.00,AUD
+CF-030,2026-05-09,Orchard Hill Retail,Sales,INCOMING,4800.00,AUD
+CF-031,2026-05-13,Copperline Components,Inventory,OUTGOING,1760.00,AUD
+CF-032,2026-05-18,Workshop Payroll,Wages,OUTGOING,2900.00,AUD
+CF-033,2026-05-21,Maple Street Markets,Sales,INCOMING,4400.00,AUD
+CF-034,2026-05-26,Wattle Grid Energy,Utilities,OUTGOING,402.60,AUD
+CF-035,2026-05-29,Tool Hire Depot,,OUTGOING,480.00,AUD
+CF-036,2026-06-03,Foundry Row Leasing,Rent,OUTGOING,3200.00,AUD
+CF-037,2026-06-08,Copperline Components,Inventory,OUTGOING,2480.00,AUD
+CF-038,2026-06-12,Orchard Hill Retail,Sales,INCOMING,2600.00,AUD
+CF-039,2026-06-17,Workshop Payroll,Wages,OUTGOING,2900.00,AUD
+CF-040,2026-06-22,Juniper Homewares,Sales,INCOMING,2000.00,AUD
+CF-041,2026-06-25,Brightside Ads,Marketing,OUTGOING,600.00,AUD
+CF-042,2026-06-30,Card Terminal Services,Fees,OUTGOING,51.20,AUD

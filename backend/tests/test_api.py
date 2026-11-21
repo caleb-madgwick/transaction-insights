@@ -79,9 +79,9 @@ def test_sample_loads(client):
     assert {t["direction"] for t in transactions} == {"INCOMING", "OUTGOING"}
 
     samples = client.get("/datasets").json()["samples"]
-    assert {s["sample_id"]: s["dataset_id"] for s in samples} == {
-        "small-business": body["dataset_id"], "retail-business": None,
-    }
+    loaded = {s["sample_id"]: s["dataset_id"] for s in samples}
+    assert loaded.pop("small-business") == body["dataset_id"]
+    assert set(loaded.values()) == {None}  # loading one sample loads nothing else
 
 
 def test_loading_twice_does_not_duplicate(client):

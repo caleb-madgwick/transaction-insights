@@ -1,0 +1,45 @@
+transaction_id,date,company,category,direction,amount,currency
+FR-001,2026-01-03,Pixelcraft Suite,Software,OUTGOING,79.00,AUD
+FR-002,2026-01-06,Lumen Internet,Utilities,OUTGOING,89.00,AUD
+FR-003,2026-01-12,Quillfeather Studio,Services,INCOMING,3200.00,AUD
+FR-004,2026-01-18,Coastal Coworking,Rent,OUTGOING,450.00,AUD
+FR-005,2026-01-24,Marlow & Finch Agency,Services,INCOMING,1800.00,AUD
+FR-006,2026-01-27,Gigboard Platform,Fees,OUTGOING,150.00,AUD
+FR-007,2026-01-31,Savings Account Interest,Interest,INCOMING,4.12,AUD
+FR-008,2026-02-03,Pixelcraft Suite,Software,OUTGOING,79.00,AUD
+FR-009,2026-02-06,Lumen Internet,Utilities,OUTGOING,89.00,AUD
+FR-010,2026-02-11,Railway Express,Travel,OUTGOING,142.60,AUD
+FR-011,2026-02-17,Coastal Coworking,Rent,OUTGOING,450.00,AUD
+FR-012,2026-02-20,Tern Bakery Co,Services,INCOMING,950.00,AUD
+FR-013,2026-02-24,Inkwell Supplies,,OUTGOING,63.40,AUD
+FR-014,2026-02-28,Savings Account Interest,Interest,INCOMING,3.88,AUD
+FR-015,2026-03-03,Pixelcraft Suite,Software,OUTGOING,79.00,AUD
+FR-016,2026-03-05,Lumen Internet,Utilities,OUTGOING,89.00,AUD
+FR-017,2026-03-09,Quillfeather Studio,Services,INCOMING,4100.00,AUD
+FR-018,2026-03-12,Gigboard Platform,Fees,OUTGOING,205.00,AUD
+FR-019,2026-03-16,Coastal Coworking,Rent,OUTGOING,450.00,AUD
+FR-020,2026-03-19,Harbourlight Events,Services,INCOMING,2600.00,AUD
+FR-021,2026-03-23,Skyway Travel,Travel,OUTGOING,612.80,AUD
+FR-022,2026-03-27,Marlow & Finch Agency,Services,INCOMING,1200.00,AUD
+FR-023,2026-03-31,Savings Account Interest,Interest,INCOMING,5.40,AUD
+FR-024,2026-04-02,Pixelcraft Suite,Software,OUTGOING,79.00,AUD
+FR-025,2026-04-06,Lumen Internet,Utilities,OUTGOING,89.00,AUD
+FR-026,2026-04-10,Shieldwell Insurance,Insurance,OUTGOING,380.00,AUD
+FR-027,2026-04-15,Coastal Coworking,Rent,OUTGOING,450.00,AUD
+FR-028,2026-04-21,Pixelcraft Suite,Refunds,INCOMING,79.00,AUD
+FR-029,2026-04-27,Brightside Ads,Marketing,OUTGOING,240.00,AUD
+FR-030,2026-04-30,Savings Account Interest,Interest,INCOMING,5.02,AUD
+FR-031,2026-05-04,Pixelcraft Suite,Software,OUTGOING,79.00,AUD
+FR-032,2026-05-06,Lumen Internet,Utilities,OUTGOING,89.00,AUD
+FR-033,2026-05-08,Quillfeather Studio,Services,INCOMING,5200.00,AUD
+FR-034,2026-05-13,Gigboard Platform,Fees,OUTGOING,260.00,AUD
+FR-035,2026-05-15,Coastal Coworking,Rent,OUTGOING,450.00,AUD
+FR-036,2026-05-22,Tern Bakery Co,Services,INCOMING,2400.00,AUD
+FR-037,2026-05-26,Railway Express,,OUTGOING,98.20,AUD
+FR-038,2026-05-31,Savings Account Interest,Interest,INCOMING,6.15,AUD
+FR-039,2026-06-02,Pixelcraft Suite,Software,OUTGOING,79.00,AUD
+FR-040,2026-06-05,Lumen Internet,Utilities,OUTGOING,89.00,AUD
+FR-041,2026-06-11,Coastal Coworking,Rent,OUTGOING,450.00,AUD
+FR-042,2026-06-17,Harbourlight Events,Services,INCOMING,1500.00,AUD
+FR-043,2026-06-24,Inkwell Supplies,Supplies,OUTGOING,118.90,AUD
+FR-044,2026-06-30,Savings Account Interest,Interest,INCOMING,5.77,AUD

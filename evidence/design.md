@@ -17,12 +17,13 @@ backend/
   summary.py       summary calculations + written summary (no DB access)
   requirements.txt  pytest.ini  tests/
 frontend/
-  src/App.tsx      tabs, data source, date filter, Overview, CSV import (React state only)
-  src/History.tsx  transaction table, filters, needs-review queue, category assignment
+  src/App.tsx      guided Insights page: data source, Run Insights, CSV import/mapping, results
+  src/History.tsx  transaction review table and category assignment
   src/api.ts       response types, one fetch wrapper, integer-cent money formatting
   src/styles.css   all styles (CSS variables for the palette)
   vite.config.ts   dev proxy: /api/* → FastAPI :8000
-sample-data/       small-business.csv, retail-business.csv (static, synthetic)
+sample-data/       5 samples: small-business, retail-business, freelancer, missing-categories,
+                   cash-flow-challenge (static, synthetic)
   fixtures/        small valid/invalid import examples
 verify.sh          all automated checks (local + CI)
 .github/workflows/ci.yml
@@ -39,19 +40,17 @@ verify.sh          all automated checks (local + CI)
 - httpx2: Starlette deprecates httpx for its test client.
 
 ## Frontend
-- Shows only backend figures: summary cards, charts and text all come from one `/summary` response, and the frontend does no money arithmetic.
+- **Guided flow:** nothing is analysed on load; only the dataset, scenario and category lists are fetched.
+  - The user chooses one source in a single dropdown (samples, CSV test scenarios, imported datasets, or their own file), then clicks **Run Insights**.
+  - **Run Insights:** samples are loaded via the idempotent `/load`; CSV files are imported (re-validated, all-or-nothing) then analysed.
+  - Run Insights is disabled until a file passes preview.
+- **One page:** the summary and the review table appear after a successful run. The UI has no filters (future feature); backend filters remain.
+- **Backend figures only:** the frontend does no money arithmetic.
 - **Stale responses:**
-  - A summary or History response is ignored if the dataset or filters changed while it was loading.
-  - Each dataset selection (sample, existing dataset, or finished import) takes a sequence number, and a slow sample load can't override a newer selection.
-  - Dataset-list refreshes are newest-wins.
-  - Any file change, including clearing it, cancels pending previews.
-- **History:**
-  - Remounted per dataset, so the previous dataset's rows can never appear.
-  - The review count uses the existing `?category=uncategorised` filter.
-  - After a successful save, History re-fetches and App increments a refresh counter that re-runs the Overview summary request. No shared state library.
-- **Failed imports:** the selected dataset and dashboard stay as they are. Row errors come from the backend.
-- **Mapping:** choosing a field for one column removes it from any other, and every change re-runs the preview.
-- **First load:** sample loading is idempotent and serialised (`BEGIN IMMEDIATE`), so React StrictMode's double request can't fail.
+  - Every source change or run takes a sequence number, so an older run, example download or list fetch can't overwrite a newer one.
+  - Changing the source clears the import area immediately.
+- **Previous results:** stay labelled "Insights for X" with a "You selected Y" hint until the next run.
+- **Test scenarios:** the real fixture file goes through the normal preview, so labels match real backend outcomes (tested). Invalid files stay invalid.
 
 ## Data model
 
@@ -78,6 +77,8 @@ verify.sh          all automated checks (local + CI)
 | GET | `/datasets/{id}/summary?start_date&end_date` | Totals, monthly, by category, text | Done |
 | PATCH | `/datasets/{id}/transactions/{tid}/category` | Set category (audited) | Done |
 | GET | `/categories` | Approved categories | Done |
+| GET | `/samples/{id}/preview` | Sample CSV first rows (allowlist, read-only) | Done |
+| GET | `/fixtures`, `/fixtures/{id}/preview`, `/fixtures/{id}/file` | CSV test scenarios for the UI | Done |
 
 - Errors: `{"detail": {"code", "message", ...}}`, e.g. `dataset_not_found`, `mapping_required`, `invalid_rows`, `duplicate_file`.
 - Invalid path or body values: FastAPI's default 422.

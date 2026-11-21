@@ -1,5 +1,7 @@
 """Transaction Insights API."""
+import csv
 import hashlib
+import io
 import sqlite3
 from contextlib import asynccontextmanager, closing
 from datetime import datetime, timezone
@@ -7,14 +9,38 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, Form, Path as PathParam, UploadFile
+from fastapi.responses import Response
 
 import db
-from importer import MAX_BYTES, api_error, parse_csv, parse_mapping
+from importer import ALIAS_TO_FIELD, MAX_BYTES, api_error, normalise, parse_csv, parse_mapping
 from models import CATEGORIES, CategoryUpdate, IsoDate, Transaction
 from summary import build_summary
 
 SAMPLE_DIR = Path(__file__).parent.parent / "sample-data"
-SAMPLES = {"small-business": "Small Business", "retail-business": "Retail Business"}
+FIXTURE_DIR = SAMPLE_DIR / "fixtures"
+PREVIEW_ROWS = 8
+
+# Allowlists: only these files can be loaded or previewed; ids map to fixed file names.
+SAMPLES = {
+    "small-business": ("Small Business", "Consultancy with balanced income and expenses over six months."),
+    "retail-business": ("Retail Business", "Shop with card sales, inventory purchases and operating costs."),
+    "freelancer": ("Freelancer", "Irregular client invoices: strong months and a very quiet April."),
+    "missing-categories": ("Missing Categories", "Cafe with 12 uncategorised transactions to practise review."),
+    "cash-flow-challenge": ("Cash Flow Challenge", "Workshop where expenses exceed income in four of six months."),
+}
+FIXTURES = {  # (name, expected outcome, explanation)
+    "signed-amount": ("Signed amounts", "Valid", "Negative amounts are expenses, positive amounts are income."),
+    "explicit-direction": ("Explicit direction", "Valid",
+                           "Unsigned amounts with an INCOMING/OUTGOING column and alternative header names."),
+    "unknown-headers": ("Unknown headers", "Needs mapping",
+                        "Columns When, Payee, Kind and Sum must be mapped to date, company, category and amount."),
+    "missing-category": ("Missing categories", "Needs review",
+                         "Blank categories import successfully and appear in Transaction Review."),
+    "invalid-amount": ("Invalid amount", "Expected rejection", "Three decimal places, text and zero amounts are rejected."),
+    "invalid-date": ("Invalid date", "Expected rejection", "A date that doesn't exist and a DD/MM/YYYY date are rejected."),
+    "missing-required-column": ("Missing required column", "Expected rejection", "There is no amount column."),
+    "duplicate-transactions": ("Duplicate transaction IDs", "Expected rejection", "The same transaction ID appears twice."),
+}
 UNCATEGORISED = "uncategorised"
 
 DatasetId = Annotated[int, PathParam(ge=1, le=2**63 - 1)]  # SQLite INTEGER range; else 422
@@ -37,6 +63,21 @@ def sha256(content: bytes) -> str:
 
 def sample_bytes(sample_id: str) -> bytes:
     return (SAMPLE_DIR / f"{sample_id}.csv").read_bytes()
+
+
+def csv_preview(path: Path) -> dict:
+    """First rows of a CSV exactly as written in the file (read-only, nothing stored)."""
+    rows = list(csv.reader(io.StringIO(path.read_text(encoding="utf-8-sig"))))
+    columns, data = rows[0], [r for r in rows[1:] if any(c.strip() for c in r)]
+    category = next((i for i, c in enumerate(columns) if ALIAS_TO_FIELD.get(normalise(c)) == "category"), None)
+    return {
+        "file_name": path.name,
+        "columns": columns,
+        "rows": data[:PREVIEW_ROWS],
+        "row_count": len(data),
+        "missing_category_count": None if category is None else
+            sum(1 for r in data if len(r) > category and not r[category].strip()),
+    }
 
 
 def require_dataset(conn: sqlite3.Connection, dataset_id: int) -> None:
@@ -91,8 +132,9 @@ def list_datasets():
         ).fetchall()
     loaded = {r["file_sha256"]: r["dataset_id"] for r in rows}
     samples = [
-        {"sample_id": sample_id, "name": name, "dataset_id": loaded.get(sha256(sample_bytes(sample_id)))}
-        for sample_id, name in SAMPLES.items()
+        {"sample_id": sample_id, "name": name, "description": description,
+         "dataset_id": loaded.get(sha256(sample_bytes(sample_id)))}
+        for sample_id, (name, description) in SAMPLES.items()
     ]
     datasets = [
         {k: r[k] for k in ("dataset_id", "name", "created_at", "transaction_count")}
@@ -152,13 +194,41 @@ def load_sample(sample_id: str):
                 report, transactions = parse_csv(content)
                 if not report["valid"]:
                     raise RuntimeError(f"Sample '{sample_id}' failed validation")
-                dataset_id = db.insert_dataset(conn, SAMPLES[sample_id], sha256(content), transactions)
+                dataset_id = db.insert_dataset(conn, SAMPLES[sample_id][0], sha256(content), transactions)
         count = conn.execute(
             "SELECT COUNT(*) FROM transactions WHERE dataset_id = ?", (dataset_id,)
         ).fetchone()[0]
 
-    return {"dataset_id": dataset_id, "name": SAMPLES[sample_id],
+    return {"dataset_id": dataset_id, "name": SAMPLES[sample_id][0],
             "transaction_count": count, "already_loaded": existing is not None}
+
+
+@app.get("/samples/{sample_id}/preview")
+def preview_sample(sample_id: str):
+    if sample_id not in SAMPLES:
+        raise api_error(404, "sample_not_found", f"Unknown sample '{sample_id}'.")
+    return csv_preview(SAMPLE_DIR / f"{sample_id}.csv")
+
+
+@app.get("/fixtures")
+def list_fixtures():
+    return [{"fixture_id": fixture_id, "name": name, "outcome": outcome, "description": description}
+            for fixture_id, (name, outcome, description) in FIXTURES.items()]
+
+
+@app.get("/fixtures/{fixture_id}/preview")
+def preview_fixture(fixture_id: str):
+    if fixture_id not in FIXTURES:
+        raise api_error(404, "fixture_not_found", f"Unknown example '{fixture_id}'.")
+    return csv_preview(FIXTURE_DIR / f"{fixture_id}.csv")
+
+
+@app.get("/fixtures/{fixture_id}/file")
+def fixture_file(fixture_id: str):
+    """The raw example file, so the UI can send it through the normal import flow."""
+    if fixture_id not in FIXTURES:
+        raise api_error(404, "fixture_not_found", f"Unknown example '{fixture_id}'.")
+    return Response((FIXTURE_DIR / f"{fixture_id}.csv").read_bytes(), media_type="text/csv")
 
 
 @app.get("/categories")

@@ -8,9 +8,9 @@ Transaction CSVs are inconsistent and often miss categories. Users need trustwor
 - Technical reviewer assessing the engineering.
 
 ## Workflow
-1. Select a sample dataset or upload a CSV (map unknown columns if asked).
-2. **Overview:** totals, charts, summary, date filter.
-3. **History:** filter transactions, assign missing categories.
+1. **Choose:** a sample dataset, an imported dataset, a CSV test scenario, or upload a CSV (map unknown columns if asked).
+2. **Analyse:** click Run Insights to see totals, charts and a summary.
+3. **Review:** assign missing categories in the review table below.
 4. **How It Works:** see how it's built.
 
 ## Assumptions

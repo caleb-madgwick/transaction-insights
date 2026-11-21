@@ -1,0 +1,42 @@
+transaction_id,date,company,category,direction,amount,currency
+MC-001,2026-01-04,Granary Lane Wholesale,Inventory,OUTGOING,1240.00,AUD
+MC-002,2026-01-07,Card Sales Settlement,Sales,INCOMING,3860.40,AUD
+MC-003,2026-01-11,Bluefin Seafood Market,,OUTGOING,486.20,AUD
+MC-004,2026-01-15,Market Street Holdings,Rent,OUTGOING,2400.00,AUD
+MC-005,2026-01-21,Card Sales Settlement,Sales,INCOMING,4120.75,AUD
+MC-006,2026-01-28,Daybreak Linen Service,,OUTGOING,164.00,AUD
+MC-007,2026-01-30,Kitchen Staff Payroll,Wages,OUTGOING,3100.00,AUD
+MC-008,2026-02-03,Granary Lane Wholesale,Inventory,OUTGOING,1185.50,AUD
+MC-009,2026-02-06,Card Sales Settlement,Sales,INCOMING,3742.10,AUD
+MC-010,2026-02-10,Wattle Grid Energy,,OUTGOING,398.45,AUD
+MC-011,2026-02-14,Market Street Holdings,Rent,OUTGOING,2400.00,AUD
+MC-012,2026-02-19,Card Sales Settlement,,INCOMING,4388.00,AUD
+MC-013,2026-02-25,Corner Print Shop,,OUTGOING,72.50,AUD
+MC-014,2026-02-27,Kitchen Staff Payroll,Wages,OUTGOING,3100.00,AUD
+MC-015,2026-03-03,Granary Lane Wholesale,Inventory,OUTGOING,1302.80,AUD
+MC-016,2026-03-06,Card Sales Settlement,Sales,INCOMING,4015.60,AUD
+MC-017,2026-03-12,Bluefin Seafood Market,,OUTGOING,512.40,AUD
+MC-018,2026-03-16,Market Street Holdings,Rent,OUTGOING,2400.00,AUD
+MC-019,2026-03-20,Card Sales Settlement,Sales,INCOMING,4466.25,AUD
+MC-020,2026-03-24,Tallowood Software,Software,OUTGOING,59.00,AUD
+MC-021,2026-03-30,Kitchen Staff Payroll,Wages,OUTGOING,3250.00,AUD
+MC-022,2026-04-02,Granary Lane Wholesale,,OUTGOING,1220.00,AUD
+MC-023,2026-04-07,Card Sales Settlement,Sales,INCOMING,3920.30,AUD
+MC-024,2026-04-13,Daybreak Linen Service,,OUTGOING,164.00,AUD
+MC-025,2026-04-15,Market Street Holdings,Rent,OUTGOING,2400.00,AUD
+MC-026,2026-04-21,Card Sales Settlement,Sales,INCOMING,4055.90,AUD
+MC-027,2026-04-29,Kitchen Staff Payroll,Wages,OUTGOING,3100.00,AUD
+MC-028,2026-05-04,Granary Lane Wholesale,Inventory,OUTGOING,1356.70,AUD
+MC-029,2026-05-08,Card Sales Settlement,Sales,INCOMING,4610.45,AUD
+MC-030,2026-05-12,Local Radio Promotions,,OUTGOING,350.00,AUD
+MC-031,2026-05-15,Market Street Holdings,Rent,OUTGOING,2400.00,AUD
+MC-032,2026-05-22,Card Sales Settlement,Sales,INCOMING,4875.20,AUD
+MC-033,2026-05-26,Bluefin Seafood Market,,OUTGOING,498.90,AUD
+MC-034,2026-05-29,Kitchen Staff Payroll,Wages,OUTGOING,3250.00,AUD
+MC-035,2026-06-02,Granary Lane Wholesale,Inventory,OUTGOING,1198.40,AUD
+MC-036,2026-06-05,Card Sales Settlement,Sales,INCOMING,3685.15,AUD
+MC-037,2026-06-11,Wattle Grid Energy,Utilities,OUTGOING,412.30,AUD
+MC-038,2026-06-15,Market Street Holdings,Rent,OUTGOING,2400.00,AUD
+MC-039,2026-06-19,Card Sales Settlement,,INCOMING,3902.60,AUD
+MC-040,2026-06-24,Ironbark Insurance,,OUTGOING,890.00,AUD
+MC-041,2026-06-29,Kitchen Staff Payroll,Wages,OUTGOING,3100.00,AUD

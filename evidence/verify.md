@@ -8,13 +8,14 @@ It runs the backend Pytest suite, then `npm run build` in `frontend/` (`tsc --no
 
 CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR targeting `main`: one Ubuntu job with Python 3.13 + `pip install`, Node 22 + `npm ci`, then `./verify.sh`.
 
-## Automated checks
+## Automated checks (128 backend tests + frontend build)
 | Check | Covers |
 |-------|--------|
 | `test_api.py` (32) | Model validation, health, sample loading, concurrent first loads, 404/422, foreign keys, isolation |
 | `test_import.py` (33) | CSV layouts, aliases, mapping, invalid values, duplicates, bad files, preview never saves, atomic rollback |
-| `test_summary.py` (28) | Exact totals (hand-checked and recomputed from CSVs), cents, months, breakdowns, one date range, net ±/0, empty data, filters |
+| `test_summary.py` (28) | Exact totals, cents, months, breakdowns, one date range, net ±/0, empty data, filters |
 | `test_review.py` (11) | End-to-end review, audit contents, idempotency, rejected updates write no audit |
+| `test_examples.py` (24) | All 5 samples load (≥ 40 rows, 6 months); scenarios match descriptions; previews equal the real files and save nothing; only allowlisted files served (traversal → 404); each fixture's label matches its real backend outcome |
 | Frontend build | TypeScript strict type-check and production bundle |
 
 ## Remote CI (GitHub Actions)
@@ -22,39 +23,38 @@ CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR target
 |-------|--------|--------|
 | 3 | `6379105` | Passed, 64 tests ([run 44868403061](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44868403061)) |
 | 4 | `e05dae9` | Passed ([run 44869249995](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44869249995)) |
-| 5 | `1b36dfd4` | Passed: 104 tests + frontend build ([run 44870924083](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44870924083)) |
-| 6 | Not pushed | Unverified |
+| 5 | `1b36dfd4` | Passed: 104 tests + build ([run 44870924083](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44870924083)) |
+| 6 | `964b7c20` | Passed ([run 44871972807](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44871972807)) |
+| UX cleanup | Not pushed | Unverified |
 
-## Stage 6 local results (21 Nov 2026, macOS, Python 3.13.13, Node 22.9.0)
+## UX cleanup local results (21 Nov 2026, macOS, Python 3.13.13, Node 22.9.0)
 | Check | Result |
 |-------|--------|
-| `./verify.sh` | 104 passed, frontend build OK, exit 0 |
+| `./verify.sh` | 128 passed, frontend build OK, exit 0 |
+| Guided browser test (headless Chrome, scratch `puppeteer-core` script, live backend on a fresh DB) | 47/47 |
 
-**Browser tests:** headless Chrome via scratch `puppeteer-core` scripts (not project dependencies), against a live backend on a fresh DB and a Vite dev server. Slow and failed requests were simulated with request interception.
+**What the browser test checked:**
+- **Initial page:** no figures, charts or review table; no load, summary or transaction requests (request log checked); three steps shown; nothing selected; Run Insights disabled.
+- **Single dropdown:** 5 samples + 8 test scenarios; tabs are Insights / How It Works.
+- **Selecting a source:** makes no requests. Sample **Preview CSV** headers equal the real file.
+- **Run Insights:** cards equal the API; the review table appears beneath.
+- **Changing source:** previous figures stay labelled with a "You selected…" hint; nothing is requested until the next run.
+- **Stale runs:** with a slow sample load, an older run never overwrites a newer run, and is discarded if the selection changes.
+- **Test scenarios:** each shows the real backend outcome (Valid / Needs mapping / Missing column / row errors). Run Insights is enabled only when valid; rejections store nothing.
+  - A valid scenario is imported then analysed in one click.
+  - Manual mapping makes the unknown-headers file runnable.
+  - A duplicate import is rejected with guidance and leaves results unchanged.
+- **Your own file:** an upload through Import CSV shows "Your file: …" and imports and analyses.
+- **Mapping follows the source:** hidden when a sample is chosen; on a quick scenario switch, only the newest file's mapping shows.
+- **Review:** 2 highlighted rows for the missing-category file.
+  - A save with the network aborted keeps the category and writes no audit row.
+  - A successful save clears the highlight, writes one audit row, and refreshes the summary (totals unchanged, review 2 → 1).
+- **Layout and errors:** no filter or date controls; hint under the dropdown; Run Insights last; no overflow at 390 px; backend down shows a readable error; no console errors.
 
-| Suite | Result |
-|-------|--------|
-| Stage 5 review fixes (stale sample selection, stale CSV preview) | Before the fixes, 3 of 4 scenarios failed. After the fixes, 5/5 checks pass. |
-| History workflow | 27/27 |
-| Overview regression (Stage 5 suite) | 23/23 |
-
-- **Review fixes:**
-  - A slow sample load no longer overrides a newer dataset choice (A) or a later import (B).
-  - Clearing the file discards a pending preview, and the panel isn't left stuck in a busy state (D).
-  - Replacing the file (C) already worked.
-- **History:**
-  - All rows shown newest first, in the same order as the API; dates and AUD amounts formatted; uncategorised rows highlighted.
-  - Direction, date, category and combined filters match API counts; invalid range shows the backend message; empty-results message.
-  - **Needs review** shows the 4 uncategorised rows.
-  - A save with the network aborted shows "Not saved…", keeps the original category, shows no success message and writes no audit row.
-  - A successful save updates the backend, writes one audit row (previous NULL → Supplies), drops the queue from 4 to 3 and refreshes the count.
-  - **Overview afterwards:** totals unchanged, "Needs review" card 4 → 3, Supplies +amount and Uncategorised −amount.
-  - With the first dataset's responses delayed 1.5 s, a quick switch to Retail shows only Retail rows.
-  - At 390 px, the table scrolls inside its card with no page overflow.
-  - With the backend stopped, a readable error and the page keeps working.
+Layout measured in Chrome: dropdown and Import CSV button both 46 px tall; Run Insights centred.
 
 ## Limitations
-- No frontend unit tests; the browser suites are scratch scripts and aren't in CI.
+- The browser test is a scratch script and isn't in CI; there are no frontend unit tests.
 - No linting.
 - Tested on Python 3.13 and Node 22 only.
-- Production bundle is ~705 kB (~207 kB gzipped), mostly Recharts; Vite shows a size warning (not an error).
+- Bundle ~705 kB (~207 kB gzipped); Vite shows a size warning.

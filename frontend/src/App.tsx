@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { api, ApiError, countLabel as count, errorText, FIELDS, formatMoney, formatMonth } from "./api";
-import type { DatasetList, ImportResult, Preview, Summary } from "./api";
+import type { CsvPreview, DatasetList, Fixture, Preview, Summary } from "./api";
 import History from "./History";
 
-const TABS = ["Overview", "History", "How It Works"] as const;
+const TABS = ["Insights", "How It Works"] as const;
 type Tab = (typeof TABS)[number];
-const DEFAULT_SAMPLE = "small-business";
 
 // Axis labels only; exact values use formatMoney.
 const axisMoney = (cents: number) =>
@@ -16,29 +16,23 @@ const axisMoney = (cents: number) =>
 const tooltipMoney = (value: unknown) => formatMoney(Number(value));
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("Overview");
+  const [tab, setTab] = useState<Tab>("Insights");
   const [list, setList] = useState<DatasetList | null>(null);
-  const [datasetId, setDatasetId] = useState<number | null>(null);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [categories, setCategories] = useState<string[] | null | undefined>(undefined);  // null = failed
+  const [source, setSource] = useState("");  // "sample:<id>", "dataset:<id>", "fixture:<id>" or "upload"
+  const [analysed, setAnalysed] = useState<{ id: number; name: string } | null>(null);  // what results show
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [running, setRunning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [showImport, setShowImport] = useState(false);
-  const [categories, setCategories] = useState<string[] | null | undefined>(undefined);  // null = failed
   const [refreshKey, setRefreshKey] = useState(0);  // bumped after a category change to re-fetch the summary
+  const [importSeed, setImportSeed] = useState<{ file: File | null; key: number }>({ file: null, key: 0 });
+  const [csv, setCsv] = useState<CsvStatus | null>(null);  // the loaded CSV, once its preview has run
 
-  function showDataset(id: number) {
-    setSummary(null);  // never show one dataset's figures under another's name
-    setStartDate("");
-    setEndDate("");
-    setDatasetId(id);
-  }
-
-  // Each selection (sample, existing dataset or finished import) takes a new number. An async
-  // step only applies its result if no newer selection has started; list fetches work the same way.
-  const selection = useRef(0);
+  // Every source change or Run Insights takes a new number; an older run can never apply its result.
+  const run = useRef(0);
   const listRequest = useRef(0);
 
   async function refreshList() {
@@ -47,49 +41,19 @@ export default function App() {
     if (request === listRequest.current) setList(latest);
   }
 
-  async function selectSample(sampleId: string) {
-    const request = ++selection.current;
-    setError("");
-    setNotice("");
-    try {
-      const { dataset_id } = await api.loadSample(sampleId);  // idempotent
-      await refreshList();
-      if (request === selection.current) showDataset(dataset_id);
-    } catch (e) {
-      if (request === selection.current) setError(errorText(e));
-    }
-  }
-
-  function chooseDataset(id: number) {
-    selection.current++;
-    setNotice("");
-    showDataset(id);
-  }
-
-  async function handleImported(result: ImportResult) {
-    const request = ++selection.current;
-    setShowImport(false);
-    setNotice(`Imported ${count(result.imported_count)} into "${result.name}" ` +
-              `(${result.uncategorised_count} need review).`);
-    try {
-      await refreshList();
-    } catch (e) {
-      setError(errorText(e));
-    }
-    if (request === selection.current) showDataset(result.dataset_id);
-  }
-
   useEffect(() => {
-    selectSample(DEFAULT_SAMPLE);
+    // Only the selector's options load up front; nothing is analysed until Run Insights.
+    refreshList().catch((e) => setError(errorText(e)));
+    api.fixtures().then(setFixtures).catch(() => setFixtures([]));
     api.categories().then((r) => setCategories(r.categories)).catch(() => setCategories(null));
   }, []);
 
   useEffect(() => {
-    if (datasetId === null) return;
-    let current = true;  // ignore responses for a dataset or range that is no longer selected
+    if (analysed === null) return;
+    let current = true;  // ignore responses for a dataset that is no longer being analysed
     setLoading(true);
     setError("");
-    api.summary(datasetId, startDate, endDate)
+    api.summary(analysed.id)
       .then((s) => current && setSummary(s))
       .catch((e) => {
         if (current) {
@@ -101,16 +65,76 @@ export default function App() {
     return () => {
       current = false;
     };
-  }, [datasetId, startDate, endDate, refreshKey]);
+  }, [analysed, refreshKey]);
 
-  const sampleFor = (id: number | null) => list?.samples.find((s) => s.dataset_id === id && id !== null);
-  const imported = list?.datasets.filter((d) => !sampleFor(d.dataset_id)) ?? [];
-  const selected = sampleFor(datasetId) ? `sample:${sampleFor(datasetId)!.sample_id}` : `dataset:${datasetId ?? ""}`;
+  const [kind, sourceId] = source.split(":");
+  const sample = kind === "sample" ? list?.samples.find((s) => s.sample_id === sourceId) : undefined;
+  const fixture = kind === "fixture" ? fixtures.find((f) => f.fixture_id === sourceId) : undefined;
+  const sampleIds = new Set(list?.samples.map((s) => s.dataset_id));
+  const imported = list?.datasets.filter((d) => !sampleIds.has(d.dataset_id)) ?? [];
+  const sourceName = sample?.name ?? imported.find((d) => `dataset:${d.dataset_id}` === source)?.name ?? "";
+  const sourceDatasetId = sample ? sample.dataset_id : kind === "dataset" ? Number(sourceId) : null;
+  const pending = (kind === "sample" || kind === "dataset") && (analysed === null || sourceDatasetId !== analysed.id);
 
-  function changeSource(value: string) {
-    const [kind, id] = value.split(":");
-    if (kind === "sample") selectSample(id);
-    else chooseDataset(Number(id));
+  const fromFile = kind === "fixture" || kind === "upload";  // Run Insights imports the file, then analyses it
+  const canRun = fromFile ? csv?.ready === true : source !== "";
+
+  function resetImport(file: File | null = null) {
+    setCsv(null);
+    setImportSeed((seed) => ({ file, key: seed.key + 1 }));
+  }
+
+  function chooseSource(value: string) {
+    const request = ++run.current;  // a run still in progress for the old source must not apply
+    setRunning(false);
+    setSource(value);
+    setNotice("");
+    setError("");
+    resetImport();  // hide the previous file's mapping straight away
+    if (value.startsWith("fixture:")) loadExample(value.slice("fixture:".length), request);
+  }
+
+  async function runInsights() {
+    const request = ++run.current;
+    setRunning(true);
+    setError("");
+    setNotice("");
+    try {
+      let target = { id: Number(sourceId), name: sourceName };
+      if (sample) {
+        target = { id: (await api.loadSample(sample.sample_id)).dataset_id, name: sample.name };  // idempotent
+        await refreshList();
+      } else if (fromFile && csv) {
+        const result = await api.importCsv(csv.file, csv.mapping);  // backend re-validates; all rows or none
+        await refreshList();
+        target = { id: result.dataset_id, name: result.name };
+        if (request === run.current) {
+          resetImport();
+          setSource(`dataset:${result.dataset_id}`);
+          setNotice(`Imported ${count(result.imported_count)} into "${result.name}" (${result.uncategorised_count} need review).`);
+        }
+      }
+      if (request !== run.current) return;
+      setSummary(null);  // never show the previous dataset's figures under the new name
+      setAnalysed(target);
+      if (tab === "How It Works") setTab("Insights");
+    } catch (e) {
+      if (request !== run.current) return;
+      setError(e instanceof ApiError && e.code === "duplicate_file"
+        ? "This file has already been imported. Choose it under Imported datasets in the Data source list."
+        : errorText(e));
+    } finally {
+      if (request === run.current) setRunning(false);
+    }
+  }
+
+  async function loadExample(fixtureId: string, request: number) {
+    try {
+      const file = await api.fixtureFile(fixtureId);
+      if (request === run.current) resetImport(file);  // only the newest selection's file is shown
+    } catch (e) {
+      if (request === run.current) setError(errorText(e));
+    }
   }
 
   return (
@@ -125,62 +149,152 @@ export default function App() {
       </header>
 
       <main className="content">
-        <section className="toolbar card">
-          <label className="field">
-            <span>Data source</span>
-            <select value={selected} onChange={(e) => changeSource(e.target.value)} disabled={!list}>
-              {!list && <option value={selected}>Loading…</option>}
-              {list && (
-                <optgroup label="Sample data">
-                  {list.samples.map((s) => <option key={s.sample_id} value={`sample:${s.sample_id}`}>{s.name}</option>)}
-                </optgroup>
-              )}
-              {imported.length > 0 && (
-                <optgroup label="Imported">
-                  {imported.map((d) => (
-                    <option key={d.dataset_id} value={`dataset:${d.dataset_id}`}>
-                      {d.name} ({d.transaction_count})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </label>
-          <button className="button secondary" onClick={() => { setShowImport(!showImport); setNotice(""); }}>
-            {showImport ? "Close import" : "Import CSV"}
-          </button>
-
-          {tab === "Overview" && (
-            <div className="dates">
-              <label className="field">
-                <span>From</span>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        {tab === "Insights" && !analysed && <Steps />}
+        {tab === "Insights" && (
+          <section className="card setup">
+            <div className="setup-row">
+              <label className="field grow">
+                <span>Data source</span>
+                <select value={source} onChange={(e) => chooseSource(e.target.value)} disabled={!list}>
+                  {kind === "upload" && <option value="upload">Your file: {csv?.file.name ?? "…"}</option>}
+                  <option value="" disabled>{list ? "Choose sample data or an imported dataset…" : error ? "Data sources unavailable" : "Loading…"}</option>
+                  {list && (
+                    <optgroup label="Sample datasets">
+                      {list.samples.map((s) => <option key={s.sample_id} value={`sample:${s.sample_id}`}>{s.name}</option>)}
+                    </optgroup>
+                  )}
+                  {fixtures.length > 0 && (
+                    <optgroup label="CSV import test scenarios (not datasets)">
+                      {fixtures.map((f) => (
+                        <option key={f.fixture_id} value={`fixture:${f.fixture_id}`}>{f.name} ({f.outcome})</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {imported.length > 0 && (
+                    <optgroup label="Imported datasets">
+                      {imported.map((d) => (
+                        <option key={d.dataset_id} value={`dataset:${d.dataset_id}`}>
+                          {d.name} ({count(d.transaction_count)})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
               </label>
-              <label className="field">
-                <span>To</span>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-              </label>
-              <button className="button link" onClick={() => { setStartDate(""); setEndDate(""); }}
-                      disabled={!startDate && !endDate}>Clear</button>
+              <label htmlFor="csv-file" className="button secondary import-button">Import CSV</label>
             </div>
-          )}
-        </section>
+            <p className="muted hint">
+              Upload a CSV containing a date, company and amount. Negative amounts are expenses; positive
+              amounts are income. Alternatively, provide an INCOMING or OUTGOING column. Missing categories
+              can be reviewed later.
+            </p>
 
-        {showImport && <CsvImport onImported={handleImported} />}
+            {sample && (
+              <PreviewToggle key={source} label={sample.description}
+                             load={() => api.samplePreview(sample.sample_id)} />
+            )}
+            {fixture && (
+              <PreviewToggle key={source} load={() => api.fixturePreview(fixture.fixture_id)} label={
+                <><span className={`pill outcome ${fixture.outcome.toLowerCase().replace(/ /g, "-")}`}>
+                  {fixture.outcome}</span> {fixture.description} Its validation result is shown below.</>
+              } />
+            )}
+
+            <CsvImport key={importSeed.key} initialFile={importSeed.file} onStatus={setCsv}
+                       onPicked={() => { run.current++; setRunning(false); setSource("upload"); setNotice(""); setError(""); }} />
+
+            <button className="button primary run" onClick={runInsights} disabled={!canRun || running || loading}>
+              {running || loading ? "Running…" : "Run Insights"}
+            </button>
+          </section>
+        )}
+
         {notice && <p className="banner success">{notice}</p>}
         {error && <p className="banner error">{error}</p>}
 
-        {tab === "Overview" && (
-          loading && !summary ? <p className="muted">Loading summary…</p>
-            : summary && <Overview summary={summary} stale={loading} />
-        )}
-        {tab === "History" && datasetId !== null && categories !== undefined && (
-          <History key={datasetId} datasetId={datasetId} categories={categories}
-                   total={list?.datasets.find((d) => d.dataset_id === datasetId)?.transaction_count ?? null}
-                   onChanged={() => setRefreshKey((k) => k + 1)} />
+        {tab === "Insights" && analysed && (
+          <>
+            <div className="results-head">
+              <h2>Insights for {analysed.name}</h2>
+              {pending && sourceName && (
+                <p className="muted">You selected {sourceName}. Click Run Insights to analyse it; the figures below
+                  are still for {analysed.name}.</p>
+              )}
+            </div>
+            {loading && !summary ? <p className="muted">Loading summary…</p>
+              : summary && <Overview summary={summary} stale={loading} />}
+            {summary && categories !== undefined && (  // review appears only once a run has produced results
+              <History key={analysed.id} datasetId={analysed.id} name={analysed.name} categories={categories}
+                       onChanged={() => setRefreshKey((k) => k + 1)} />
+            )}
+          </>
         )}
         {tab === "How It Works" && <Placeholder text="The engineering walkthrough arrives in Stage 7." />}
       </main>
+    </div>
+  );
+}
+
+function Steps() {
+  const steps = [
+    ["Choose", "Select sample data or upload a CSV."],
+    ["Analyse", "View income, expenses, cash flow and trends."],
+    ["Review", "Inspect transactions and correct missing categories."],
+  ];
+  return (
+    <section className="steps">
+      {steps.map(([title, text], i) => (
+        <div key={title} className="card step">
+          <span className="step-number">{i + 1}</span>
+          <div><strong>{title}</strong><p className="muted">{text}</p></div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function PreviewToggle({ label, load }: { label: ReactNode; load: () => Promise<CsvPreview> }) {
+  const [preview, setPreview] = useState<CsvPreview | null>(null);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+
+  async function toggle() {
+    setOpen(!open);
+    if (!preview) {
+      try {
+        setPreview(await load());
+      } catch (e) {
+        setError(errorText(e));
+      }
+    }
+  }
+
+  return (
+    <div className="preview-toggle">
+      <p className="muted">{label} <button className="button link inline" onClick={toggle}>
+        {open ? "Hide CSV" : "Preview CSV"}</button></p>
+      {open && error && <p className="banner error">{error}</p>}
+      {open && preview && <CsvTable preview={preview} />}
+    </div>
+  );
+}
+
+function CsvTable({ preview: p }: { preview: CsvPreview }) {
+  const missing = p.missing_category_count === null ? "no category column"
+    : p.missing_category_count === 0 ? "no missing categories" : `${p.missing_category_count} missing categories`;
+  return (
+    <div className="csv-preview">
+      <p className="muted">{p.file_name} · {p.row_count} rows · {missing}{p.row_count > p.rows.length && ` · first ${p.rows.length} shown`}</p>
+      <div className="table-wrap">
+        <table className="mapping csv-table">
+          <thead><tr>{p.columns.map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
+          <tbody>
+            {p.rows.map((row, i) => (
+              <tr key={i}>{row.map((cell, j) => <td key={j} className={cell === "" ? "blank" : ""}>{cell || "—"}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -212,7 +326,7 @@ function Overview({ summary: s, stale }: { summary: Summary; stale: boolean }) {
       <section className="charts">
         <div className="card">
           <h2>Income vs expenses</h2>
-          {empty ? <p className="muted">No transactions in this period.</p> : (
+          {empty ? <p className="muted">No transactions in this dataset.</p> : (
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={s.monthly} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="#e6e8ec" vertical={false} />
@@ -229,7 +343,7 @@ function Overview({ summary: s, stale }: { summary: Summary; stale: boolean }) {
 
         <div className="card">
           <h2>Expenses by category</h2>
-          {categories.length === 0 ? <p className="muted">No expenses in this period.</p> : (
+          {categories.length === 0 ? <p className="muted">No expenses in this dataset.</p> : (
             <ResponsiveContainer width="100%" height={Math.max(160, categories.length * 34)}>
               <BarChart data={categories} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="#e6e8ec" horizontal={false} />
@@ -262,40 +376,46 @@ function Placeholder({ text }: { text: string }) {
   return <section className="card placeholder"><p className="muted">{text}</p></section>;
 }
 
-function CsvImport({ onImported }: { onImported: (result: ImportResult) => void }) {
+interface CsvStatus { file: File; mapping: Record<string, string> | null; ready: boolean }
+
+function CsvImport({ initialFile, onPicked, onStatus }: {
+  initialFile: File | null; onPicked: () => void; onStatus: (status: CsvStatus | null) => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [mapping, setMapping] = useState<Record<string, string> | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [busy, setBusy] = useState(false);
   const latest = useRef(0);  // only the newest preview request may update the screen
+
+  useEffect(() => {
+    if (initialFile) chooseFile(initialFile);  // an example file chosen in the Data source list
+  }, []);
 
   async function check(f: File, m: Record<string, string> | null) {
     const request = ++latest.current;
-    setBusy(true);
     setError(null);
+    onStatus({ file: f, mapping: m, ready: false });  // not runnable until this preview passes
     try {
       const result = await api.preview(f, m);
       if (request !== latest.current) return;
       setPreview(result);
       setMapping(result.mapping);
+      onStatus({ file: f, mapping: result.mapping, ready: result.valid });
     } catch (e) {
       if (request !== latest.current) return;
       setPreview(null);
       setError(e instanceof ApiError ? e : new ApiError(errorText(e)));
-    } finally {
-      if (request === latest.current) setBusy(false);
     }
   }
 
   function chooseFile(f: File | null) {
     latest.current++;  // any file change (or clearing it) cancels pending previews
-    setBusy(false);
     setFile(f);
     setPreview(null);
     setMapping(null);
     setError(null);
     if (f) check(f, null);
+    else onStatus(null);
   }
 
   function mapColumn(column: string, field: string) {
@@ -306,30 +426,14 @@ function CsvImport({ onImported }: { onImported: (result: ImportResult) => void 
     check(file!, next);
   }
 
-  async function confirm() {
-    setBusy(true);
-    setError(null);
-    try {
-      onImported(await api.importCsv(file!, mapping));
-    } catch (e) {
-      setError(e instanceof ApiError ? e : new ApiError(errorText(e)));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const rowErrors = error?.errors.length ? error.errors : preview && !preview.valid ? preview.errors : [];
   const totalErrors = error?.errors.length ? error.errors.length : preview?.error_count ?? 0;
 
   return (
-    <section className="card import">
-      <h2>Import CSV</h2>
-      <p className="muted">
-        Required columns: date (YYYY-MM-DD), company, amount. Either use signed amounts
-        (<strong>negative = OUTGOING, positive = INCOMING</strong>) or add a direction column
-        (INCOMING / OUTGOING) with unsigned amounts. Blank categories are imported for review.
-      </p>
-      <input type="file" accept=".csv,text/csv" onChange={(e) => chooseFile(e.target.files?.[0] ?? null)} />
+    <div className="import">
+      <input id="csv-file" type="file" accept=".csv,text/csv" hidden
+             onChange={(e) => { const f = e.target.files?.[0] ?? null; if (f) onPicked(); chooseFile(f); }} />
+      {file && <p className="file-name">File: <strong>{file.name}</strong></p>}
 
       {preview && (
         <>
@@ -351,9 +455,12 @@ function CsvImport({ onImported }: { onImported: (result: ImportResult) => void 
           </table>
           <p className={preview.valid ? "status ok" : "status"}>
             {preview.valid
-              ? `Ready to import ${preview.row_count} rows (${preview.uncategorised_count} without a category).`
+              ? `Ready: ${preview.row_count} rows (${preview.uncategorised_count} without a category). ` +
+                "Run Insights will import and analyse this file."
               : preview.missing_fields.length
-                ? `Map a column to: ${preview.missing_fields.join(", ")}.`
+                ? preview.unmapped_columns.length
+                  ? `Map a column to: ${preview.missing_fields.join(", ")}.`
+                  : `Missing required column: ${preview.missing_fields.join(", ")}. This file can't be imported.`
                 : `${preview.error_count} problem(s) found. Fix the file and choose it again.`}
           </p>
         </>
@@ -368,12 +475,6 @@ function CsvImport({ onImported }: { onImported: (result: ImportResult) => void 
           {totalErrors > rowErrors.length && <li>…and {totalErrors - rowErrors.length} more.</li>}
         </ul>
       )}
-
-      <div className="actions">
-        <button className="button primary" onClick={confirm} disabled={!preview?.valid || busy}>
-          {busy ? "Working…" : "Import"}
-        </button>
-      </div>
-    </section>
+    </div>
   );
 }

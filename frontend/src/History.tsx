@@ -1,38 +1,27 @@
 import { useEffect, useState } from "react";
-import { api, countLabel, errorText, formatDate, formatMoney, UNCATEGORISED } from "./api";
-import type { Transaction, TransactionFilters } from "./api";
-
-const NO_FILTERS: TransactionFilters = { start_date: "", end_date: "", category: "", direction: "" };
+import { api, countLabel, errorText, formatDate, formatMoney } from "./api";
+import type { Transaction } from "./api";
 
 interface Props {
   datasetId: number;
-  total: number | null;              // all transactions in the dataset
+  name: string;
   categories: string[] | null;       // null = category list failed to load
-  onChanged: () => void;             // tell App to refresh the Overview summary
+  onChanged: () => void;             // tell App to refresh the summary
 }
 
-export default function History({ datasetId, total, categories, onChanged }: Props) {
-  const [filters, setFilters] = useState(NO_FILTERS);
+export default function History({ datasetId, name, categories, onChanged }: Props) {
   const [rows, setRows] = useState<Transaction[] | null>(null);
-  const [reviewCount, setReviewCount] = useState<number | null>(null);
   const [version, setVersion] = useState(0);  // bumped after a save to re-fetch
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    let current = true;  // ignore responses for filters that are no longer selected
+    let current = true;  // ignore a response that arrives after this dataset is replaced
     setLoading(true);
     setError("");
-    Promise.all([
-      api.transactions(datasetId, filters),
-      api.transactions(datasetId, { category: UNCATEGORISED }),
-    ])
-      .then(([matching, needsReview]) => {
-        if (!current) return;
-        setRows(matching);
-        setReviewCount(needsReview.length);
-      })
+    api.transactions(datasetId)
+      .then((all) => current && setRows(all))
       .catch((e) => {
         if (!current) return;
         setRows(null);
@@ -42,12 +31,7 @@ export default function History({ datasetId, total, categories, onChanged }: Pro
     return () => {
       current = false;
     };
-  }, [datasetId, filters, version]);
-
-  function setFilter(name: keyof TransactionFilters, value: string) {
-    setNotice("");
-    setFilters({ ...filters, [name]: value });
-  }
+  }, [datasetId, version]);
 
   function saved(t: Transaction, category: string) {
     setNotice(`${t.company} (${formatDate(t.date)}) is now categorised as ${category}.`);
@@ -55,53 +39,17 @@ export default function History({ datasetId, total, categories, onChanged }: Pro
     onChanged();
   }
 
-  const filtered = Object.values(filters).some(Boolean);
-  const reviewing = filters.category === UNCATEGORISED;
+  const needsReview = rows?.filter((t) => t.category === null).length ?? 0;
 
   return (
     <section className="card history">
       <div className="history-head">
-        <h2>Transaction history</h2>
-        <p className="muted">
-          {rows && (total !== null ? `Showing ${rows.length} of ${countLabel(total)}` : `Showing ${countLabel(rows.length)}`)}
-          {reviewCount !== null && (
-            <> · <span className={reviewCount ? "review-count" : ""}>{reviewCount} in this dataset need review</span></>
-          )}
-        </p>
-      </div>
-
-      <div className="filters">
-        <label className="field">
-          <span>From</span>
-          <input type="date" value={filters.start_date} onChange={(e) => setFilter("start_date", e.target.value)} />
-        </label>
-        <label className="field">
-          <span>To</span>
-          <input type="date" value={filters.end_date} onChange={(e) => setFilter("end_date", e.target.value)} />
-        </label>
-        <label className="field">
-          <span>Direction</span>
-          <select value={filters.direction} onChange={(e) => setFilter("direction", e.target.value)}>
-            <option value="">All</option>
-            <option value="INCOMING">Incoming</option>
-            <option value="OUTGOING">Outgoing</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>Category</span>
-          <select value={filters.category} onChange={(e) => setFilter("category", e.target.value)}>
-            <option value="">All</option>
-            <option value={UNCATEGORISED}>Uncategorised</option>
-            {categories?.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </label>
-        <button className={reviewing ? "button secondary active" : "button secondary"}
-                onClick={() => setFilter("category", reviewing ? "" : UNCATEGORISED)}>
-          Needs review
-        </button>
-        <button className="button link" onClick={() => { setNotice(""); setFilters(NO_FILTERS); }} disabled={!filtered}>
-          Clear filters
-        </button>
+        <h2>Transaction review · {name}</h2>
+        {rows && (
+          <p className="muted">
+            {countLabel(rows.length)} · <span className={needsReview ? "review-count" : ""}>{needsReview} need review</span>
+          </p>
+        )}
       </div>
 
       {categories === null && (
@@ -111,10 +59,7 @@ export default function History({ datasetId, total, categories, onChanged }: Pro
       {error && <p className="banner error">{error}</p>}
 
       {rows === null ? (!error && <p className="muted">Loading transactions…</p>) : rows.length === 0 ? (
-        <p className="muted empty">
-          {reviewing ? "Nothing needs review for these filters." : filtered
-            ? "No transactions match these filters." : "This dataset has no transactions."}
-        </p>
+        <p className="muted empty">This dataset has no transactions.</p>
       ) : (
         <div className={loading ? "table-wrap stale" : "table-wrap"}>
           <table className="transactions">
