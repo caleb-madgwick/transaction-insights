@@ -18,7 +18,8 @@ backend/
   requirements.txt  pytest.ini  tests/
 frontend/
   src/App.tsx      guided Insights page: data source, Run Insights, CSV import/mapping, results
-  src/History.tsx  transaction review table and category assignment
+  src/History.tsx  transaction review table, filters, category assignment
+  src/HowItWorks.tsx  one-page engineering walkthrough (inline SVG architecture diagram)
   src/api.ts       response types, one fetch wrapper, integer-cent money formatting
   src/styles.css   all styles (CSS variables for the palette)
   vite.config.ts   dev proxy: /api/* → FastAPI :8000
@@ -44,13 +45,14 @@ verify.sh          all automated checks (local + CI)
   - The user chooses one source in a single dropdown (samples, CSV test scenarios, imported datasets, or their own file), then clicks **Run Insights**.
   - **Run Insights:** samples are loaded via the idempotent `/load`; CSV files are imported (re-validated, all-or-nothing) then analysed.
   - Run Insights is disabled until a file passes preview.
-- **One page:** the summary and the review table appear after a successful run. The UI has no filters (future feature); backend filters remain.
+- **One page:** the summary and the review table appear after a successful run. Review filters (Direction, Category, Needs review) use the backend query parameters; no date filters in the UI.
 - **Backend figures only:** the frontend does no money arithmetic.
 - **Stale responses:**
   - Every source change or run takes a sequence number, so an older run, example download or list fetch can't overwrite a newer one.
   - Changing the source clears the import area immediately.
-- **Previous results:** stay labelled "Insights for X" with a "You selected Y" hint until the next run.
+- **Changing the source:** hides previous results until Run Insights. Late responses are ignored.
 - **Test scenarios:** the real fixture file goes through the normal preview, so labels match real backend outcomes (tested). Invalid files stay invalid.
+- **Dataset origin:** `GET /datasets` labels each dataset `sample:<id>`, `fixture:<id>` or `upload` (by file hash). Only uploads are listed as imported datasets; a scenario that was already imported is reused.
 
 ## Data model
 

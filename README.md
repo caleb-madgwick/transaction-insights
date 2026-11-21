@@ -5,9 +5,9 @@ Lightweight financial dashboard: import transactions, view income and expenses, 
 ## Features
 - **Insights** (done): one page, three steps (Choose → Analyse → Review).
   - Choose a sample, an imported dataset, a CSV test scenario or your own file, then click **Run Insights**.
-  - **Results:** totals, net cash flow, monthly and category charts, a written summary, and a transaction review table with category assignment.
-- **How It Works** (Stage 7): engineering walkthrough.
-- **Future:** filters in the review table (direction, category, date, needs-review only). The backend API already supports them.
+  - **Results:** totals, net cash flow, monthly and category charts, a written summary, and a transaction review table with Direction, Category and Needs review filters plus category assignment.
+- **How It Works** (done): one-page engineering walkthrough with an architecture diagram, data flow, design choices, AI-agent use and verification, CI/CD and cloud, security and operations, and next steps.
+- **Navigation:** two tabs, **Insights** and **How It Works**.
 
 ## Stack
 React + TypeScript + Vite · FastAPI + Pydantic · SQLite · Recharts · Pytest
@@ -50,14 +50,14 @@ npm run dev        # http://localhost:5173
 ### Guided workflow
 1. **Choose** from the single **Data source** list:
    - **Sample datasets:** Small Business, Retail Business, Freelancer, Missing Categories, Cash Flow Challenge. **Preview CSV** shows the real file.
-   - **CSV import test scenarios:** the files in `sample-data/fixtures/`, labelled *Valid*, *Needs mapping*, *Needs review* or *Expected rejection*. Choosing one runs the real backend validation and shows the column mapping and any errors.
-   - **Imported datasets:** anything imported earlier.
+   - **CSV import test scenarios:** the files in `sample-data/fixtures/`, labelled *Valid*, *Needs mapping*, *Needs review* or *Expected rejection*. Choosing one runs the real backend validation and shows the column mapping and any errors. A scenario is imported once and reused after that; it isn't listed as an imported dataset.
+   - **Imported datasets:** your own uploads.
    - Or click **Import CSV** to use your own file ("Your file: …").
 2. **Run Insights.**
    - Samples are loaded and analysed.
    - CSV files are imported (all rows or none) and then analysed. It stays disabled until a file passes validation, so fix the mapping first if asked.
-   - Nothing is analysed before this click, and changing the source needs a new run.
-3. **Review** below the charts. Uncategorised rows are highlighted; pick a category and **Save**. The backend validates and audits the change, and the summary refreshes; totals never change.
+   - Nothing is analysed before this click. Changing the source hides the previous results until the next run.
+3. **Review** below the charts. Filter by Direction, Category or **Needs review** (all done by the backend). Pick a category and **Save**. The backend validates and audits the change, and the summary refreshes; totals never change.
 
 **Demo:** choose *Missing Categories* → **Run Insights** → assign a category to a highlighted row → "Needs review" drops from 12 to 11 and the category chart updates.
 
@@ -144,7 +144,8 @@ Reassigning a category changes the category breakdowns, never the totals. A repe
 | 5 Frontend + Overview | Done |
 | 6 History + review | Done |
 | UX cleanup (guided workflow) | Done |
-| 7–8 | Not started |
+| 7 How It Works | Done |
+| 8 | Not started |
 
 ## Docs
 [Intent](evidence/intent.md) · [Design](evidence/design.md) · [Decisions](evidence/decisions.md) · [Verification](evidence/verify.md) · [Agentic workflow](evidence/agentic-workflow.md)

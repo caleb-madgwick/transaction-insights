@@ -136,8 +136,12 @@ def list_datasets():
          "dataset_id": loaded.get(sha256(sample_bytes(sample_id)))}
         for sample_id, (name, description) in SAMPLES.items()
     ]
+    # Where each dataset came from, by file content: a sample, a CSV test scenario, or a user upload.
+    origins = {sha256(sample_bytes(sample_id)): f"sample:{sample_id}" for sample_id in SAMPLES}
+    origins |= {sha256((FIXTURE_DIR / f"{fixture_id}.csv").read_bytes()): f"fixture:{fixture_id}" for fixture_id in FIXTURES}
     datasets = [
-        {k: r[k] for k in ("dataset_id", "name", "created_at", "transaction_count")}
+        {**{k: r[k] for k in ("dataset_id", "name", "created_at", "transaction_count")},
+         "source": origins.get(r["file_sha256"], "upload")}
         for r in rows
     ]
     return {"samples": samples, "datasets": datasets}

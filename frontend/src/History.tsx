@@ -1,27 +1,39 @@
 import { useEffect, useState } from "react";
-import { api, countLabel, errorText, formatDate, formatMoney } from "./api";
-import type { Transaction } from "./api";
+import { api, countLabel, errorText, formatDate, formatMoney, UNCATEGORISED } from "./api";
+import type { Transaction, TransactionFilters } from "./api";
+
+const NO_FILTERS: TransactionFilters = { category: "", direction: "" };
 
 interface Props {
   datasetId: number;
   name: string;
+  total: number | null;              // all transactions in the dataset
   categories: string[] | null;       // null = category list failed to load
   onChanged: () => void;             // tell App to refresh the summary
 }
 
-export default function History({ datasetId, name, categories, onChanged }: Props) {
+export default function History({ datasetId, name, total, categories, onChanged }: Props) {
+  const [filters, setFilters] = useState(NO_FILTERS);
   const [rows, setRows] = useState<Transaction[] | null>(null);
+  const [reviewCount, setReviewCount] = useState<number | null>(null);
   const [version, setVersion] = useState(0);  // bumped after a save to re-fetch
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    let current = true;  // ignore a response that arrives after this dataset is replaced
+    let current = true;  // ignore responses for filters or a dataset that are no longer selected
     setLoading(true);
     setError("");
-    api.transactions(datasetId)
-      .then((all) => current && setRows(all))
+    Promise.all([
+      api.transactions(datasetId, filters),                      // filtering is done by the backend
+      api.transactions(datasetId, { category: UNCATEGORISED }),  // whole-dataset review count
+    ])
+      .then(([matching, needsReview]) => {
+        if (!current) return;
+        setRows(matching);
+        setReviewCount(needsReview.length);
+      })
       .catch((e) => {
         if (!current) return;
         setRows(null);
@@ -31,7 +43,12 @@ export default function History({ datasetId, name, categories, onChanged }: Prop
     return () => {
       current = false;
     };
-  }, [datasetId, version]);
+  }, [datasetId, filters, version]);
+
+  function setFilter(key: keyof TransactionFilters, value: string) {
+    setNotice("");
+    setFilters({ ...filters, [key]: value });
+  }
 
   function saved(t: Transaction, category: string) {
     setNotice(`${t.company} (${formatDate(t.date)}) is now categorised as ${category}.`);
@@ -39,7 +56,8 @@ export default function History({ datasetId, name, categories, onChanged }: Prop
     onChanged();
   }
 
-  const needsReview = rows?.filter((t) => t.category === null).length ?? 0;
+  const filtered = filters.category !== "" || filters.direction !== "";
+  const reviewing = filters.category === UNCATEGORISED;
 
   return (
     <section className="card history">
@@ -47,9 +65,38 @@ export default function History({ datasetId, name, categories, onChanged }: Prop
         <h2>Transaction review · {name}</h2>
         {rows && (
           <p className="muted">
-            {countLabel(rows.length)} · <span className={needsReview ? "review-count" : ""}>{needsReview} need review</span>
+            {total !== null ? `Showing ${rows.length} of ${countLabel(total)}` : `Showing ${countLabel(rows.length)}`}
+            {reviewCount !== null && (
+              <> · <span className={reviewCount ? "review-count" : ""}>{reviewCount} need review</span></>
+            )}
           </p>
         )}
+      </div>
+
+      <div className="filters">
+        <label className="field">
+          <span>Direction</span>
+          <select value={filters.direction} onChange={(e) => setFilter("direction", e.target.value)}>
+            <option value="">All</option>
+            <option value="INCOMING">Incoming</option>
+            <option value="OUTGOING">Outgoing</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Category</span>
+          <select value={reviewing ? "" : filters.category} onChange={(e) => setFilter("category", e.target.value)}
+                  disabled={reviewing}>
+            <option value="">All</option>
+            {categories?.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+        <button className={reviewing ? "button secondary active" : "button secondary"}
+                onClick={() => setFilter("category", reviewing ? "" : UNCATEGORISED)}>
+          Needs review
+        </button>
+        <button className="button link" onClick={() => { setNotice(""); setFilters(NO_FILTERS); }} disabled={!filtered}>
+          Clear filters
+        </button>
       </div>
 
       {categories === null && (
@@ -59,7 +106,10 @@ export default function History({ datasetId, name, categories, onChanged }: Prop
       {error && <p className="banner error">{error}</p>}
 
       {rows === null ? (!error && <p className="muted">Loading transactions…</p>) : rows.length === 0 ? (
-        <p className="muted empty">This dataset has no transactions.</p>
+        <p className="muted empty">
+          {reviewing ? "Nothing needs review for these filters." : filtered
+            ? "No transactions match these filters." : "This dataset has no transactions."}
+        </p>
       ) : (
         <div className={loading ? "table-wrap stale" : "table-wrap"}>
           <table className="transactions">

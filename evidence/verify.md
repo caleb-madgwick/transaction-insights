@@ -8,14 +8,14 @@ It runs the backend Pytest suite, then `npm run build` in `frontend/` (`tsc --no
 
 CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR targeting `main`: one Ubuntu job with Python 3.13 + `pip install`, Node 22 + `npm ci`, then `./verify.sh`.
 
-## Automated checks (128 backend tests + frontend build)
+## Automated checks (129 backend tests + frontend build)
 | Check | Covers |
 |-------|--------|
 | `test_api.py` (32) | Model validation, health, sample loading, concurrent first loads, 404/422, foreign keys, isolation |
 | `test_import.py` (33) | CSV layouts, aliases, mapping, invalid values, duplicates, bad files, preview never saves, atomic rollback |
 | `test_summary.py` (28) | Exact totals, cents, months, breakdowns, one date range, net ±/0, empty data, filters |
 | `test_review.py` (11) | End-to-end review, audit contents, idempotency, rejected updates write no audit |
-| `test_examples.py` (24) | All 5 samples load (≥ 40 rows, 6 months); scenarios match descriptions; previews equal the real files and save nothing; only allowlisted files served (traversal → 404); each fixture's label matches its real backend outcome |
+| `test_examples.py` (25) | All 5 samples load; scenarios match descriptions; previews equal the real files; allowlist (traversal → 404); fixture labels match real outcomes; dataset origin (sample / fixture / upload) |
 | Frontend build | TypeScript strict type-check and production bundle |
 
 ## Remote CI (GitHub Actions)
@@ -25,36 +25,34 @@ CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR target
 | 4 | `e05dae9` | Passed ([run 44869249995](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44869249995)) |
 | 5 | `1b36dfd4` | Passed: 104 tests + build ([run 44870924083](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44870924083)) |
 | 6 | `964b7c20` | Passed ([run 44871972807](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44871972807)) |
-| UX cleanup | Not pushed | Unverified |
+| UX cleanup | `aa43e3833` | Passed: 128 tests + build ([run 44873451988](https://github.com/caleb-madgwick/transaction-insights/actions/runs/44873451988)) |
+| 7 | Not pushed | Unverified |
 
-## UX cleanup local results (21 Nov 2026, macOS, Python 3.13.13, Node 22.9.0)
+## Stage 7 local results (21 Nov 2026, macOS, Python 3.13.13, Node 22.9.0)
 | Check | Result |
 |-------|--------|
-| `./verify.sh` | 128 passed, frontend build OK, exit 0 |
-| Guided browser test (headless Chrome, scratch `puppeteer-core` script, live backend on a fresh DB) | 47/47 |
+| `./verify.sh` | 129 passed, frontend build OK, exit 0 |
+| Guided Insights browser test (headless Chrome, scratch `puppeteer-core` script, live backend on a fresh DB) | 53/53 |
+| How It Works browser test (same setup) | 19/19 |
 
-**What the browser test checked:**
-- **Initial page:** no figures, charts or review table; no load, summary or transaction requests (request log checked); three steps shown; nothing selected; Run Insights disabled.
-- **Single dropdown:** 5 samples + 8 test scenarios; tabs are Insights / How It Works.
-- **Selecting a source:** makes no requests. Sample **Preview CSV** headers equal the real file.
-- **Run Insights:** cards equal the API; the review table appears beneath.
-- **Changing source:** previous figures stay labelled with a "You selected…" hint; nothing is requested until the next run.
-- **Stale runs:** with a slow sample load, an older run never overwrites a newer run, and is discarded if the selection changes.
-- **Test scenarios:** each shows the real backend outcome (Valid / Needs mapping / Missing column / row errors). Run Insights is enabled only when valid; rejections store nothing.
-  - A valid scenario is imported then analysed in one click.
-  - Manual mapping makes the unknown-headers file runnable.
-  - A duplicate import is rejected with guidance and leaves results unchanged.
-- **Your own file:** an upload through Import CSV shows "Your file: …" and imports and analyses.
-- **Mapping follows the source:** hidden when a sample is chosen; on a quick scenario switch, only the newest file's mapping shows.
-- **Review:** 2 highlighted rows for the missing-category file.
-  - A save with the network aborted keeps the category and writes no audit row.
-  - A successful save clears the highlight, writes one audit row, and refreshes the summary (totals unchanged, review 2 → 1).
-- **Layout and errors:** no filter or date controls; hint under the dropdown; Run Insights last; no overflow at 390 px; backend down shows a readable error; no console errors.
+**Guided Insights test:**
+- **Initial page:** no figures and no load or summary requests.
+- **Run Insights:** shows backend figures. A new source hides the previous results, and slow older runs never bring them back.
+- **Test scenarios:** each shows its real backend outcome. A valid scenario is imported once, then reused on re-run, and isn't listed under Imported datasets.
+- **Duplicates and uploads:** a duplicate upload is rejected; your own upload is listed under Imported datasets.
+- **Review filters:** Direction, Category, combined, Needs review and Clear all match API counts. There are no date inputs.
+- **Review saves:** a failed save keeps the category and writes no audit row. A successful save writes one audit row and leaves totals unchanged.
+- **Layout:** no overflow at 390 px; backend-down error; no console errors.
 
-Layout measured in Chrome: dropdown and Import CSV button both 46 px tall; Run Insights centred.
+**How It Works test:**
+- **Structure:** six labelled sections; implemented versus future labels correct.
+- **Diagram:** the architecture is an SVG diagram.
+- **Endpoints:** every endpoint shown exists in the backend's `/openapi.json`.
+- **Examples:** the JSON examples match live responses field by field.
+- **Facts:** the CI figure is shown with its source and date; no bank names; 552 words; no overflow at 390 px.
 
 ## Limitations
-- The browser test is a scratch script and isn't in CI; there are no frontend unit tests.
+- The browser tests are scratch scripts and aren't in CI; there are no frontend unit tests.
 - No linting.
 - Tested on Python 3.13 and Node 22 only.
 - Bundle ~705 kB (~207 kB gzipped); Vite shows a size warning.

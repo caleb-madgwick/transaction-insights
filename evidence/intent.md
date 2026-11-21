@@ -38,7 +38,7 @@ Auth, multi-currency, editing/deleting transactions, merging uploads, debit/cred
 - [x] Filters work and are scoped to the dataset.
 - [x] Category change saved with audit record; invalid category rejected.
 - [x] UI shows clear errors and refreshes summary after changes.
-- [ ] How It Works labels each item as implemented, verified or future.
+- [x] How It Works labels each item as implemented, verified or future.
 
 ## Done when
 - Criteria met or gaps documented.

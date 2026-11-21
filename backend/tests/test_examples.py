@@ -89,3 +89,12 @@ def test_fixture_label_matches_actual_backend_outcome(client, fixture_id):
         assert report["valid"] and report["uncategorised_count"] > 0
     else:
         assert not report["valid"]
+
+
+def test_datasets_report_their_source(client):
+    client.post("/datasets/small-business/load")
+    fixture = client.get("/fixtures/signed-amount/file").content
+    client.post("/datasets", files={"file": ("signed-amount.csv", fixture, "text/csv")})
+    client.post("/datasets", files={"file": ("mine.csv", b"date,company,amount\n2026-08-01,Co,-1.00\n", "text/csv")})
+    sources = [d["source"] for d in client.get("/datasets").json()["datasets"]]
+    assert sources == ["sample:small-business", "fixture:signed-amount", "upload"]

@@ -6,6 +6,7 @@ import {
 import { api, ApiError, countLabel as count, errorText, FIELDS, formatMoney, formatMonth } from "./api";
 import type { CsvPreview, DatasetList, Fixture, Preview, Summary } from "./api";
 import History from "./History";
+import HowItWorks from "./HowItWorks";
 
 const TABS = ["Insights", "How It Works"] as const;
 type Tab = (typeof TABS)[number];
@@ -70,26 +71,32 @@ export default function App() {
   const [kind, sourceId] = source.split(":");
   const sample = kind === "sample" ? list?.samples.find((s) => s.sample_id === sourceId) : undefined;
   const fixture = kind === "fixture" ? fixtures.find((f) => f.fixture_id === sourceId) : undefined;
-  const sampleIds = new Set(list?.samples.map((s) => s.dataset_id));
-  const imported = list?.datasets.filter((d) => !sampleIds.has(d.dataset_id)) ?? [];
+  const imported = list?.datasets.filter((d) => d.source === "upload") ?? [];  // samples and scenarios aren't listed
+  const scenarioDataset = fixture && list?.datasets.find((d) => d.source === `fixture:${fixture.fixture_id}`);
   const sourceName = sample?.name ?? imported.find((d) => `dataset:${d.dataset_id}` === source)?.name ?? "";
-  const sourceDatasetId = sample ? sample.dataset_id : kind === "dataset" ? Number(sourceId) : null;
-  const pending = (kind === "sample" || kind === "dataset") && (analysed === null || sourceDatasetId !== analysed.id);
 
   const fromFile = kind === "fixture" || kind === "upload";  // Run Insights imports the file, then analyses it
-  const canRun = fromFile ? csv?.ready === true : source !== "";
+  const canRun = scenarioDataset ? true : fromFile ? csv?.ready === true : source !== "";
 
   function resetImport(file: File | null = null) {
     setCsv(null);
     setImportSeed((seed) => ({ file, key: seed.key + 1 }));
   }
 
-  function chooseSource(value: string) {
+  // Any new source hides the previous results until Run Insights is clicked again.
+  function startNewSource(value: string): number {
     const request = ++run.current;  // a run still in progress for the old source must not apply
     setRunning(false);
     setSource(value);
     setNotice("");
     setError("");
+    setAnalysed(null);  // unmounts results and review; the summary effect ignores late responses
+    setSummary(null);
+    return request;
+  }
+
+  function chooseSource(value: string) {
+    const request = startNewSource(value);
     resetImport();  // hide the previous file's mapping straight away
     if (value.startsWith("fixture:")) loadExample(value.slice("fixture:".length), request);
   }
@@ -104,14 +111,18 @@ export default function App() {
       if (sample) {
         target = { id: (await api.loadSample(sample.sample_id)).dataset_id, name: sample.name };  // idempotent
         await refreshList();
+      } else if (scenarioDataset) {
+        target = { id: scenarioDataset.dataset_id, name: fixture!.name };  // already imported once: reuse it
       } else if (fromFile && csv) {
         const result = await api.importCsv(csv.file, csv.mapping);  // backend re-validates; all rows or none
         await refreshList();
-        target = { id: result.dataset_id, name: result.name };
+        target = { id: result.dataset_id, name: fixture?.name ?? result.name };
         if (request === run.current) {
-          resetImport();
-          setSource(`dataset:${result.dataset_id}`);
-          setNotice(`Imported ${count(result.imported_count)} into "${result.name}" (${result.uncategorised_count} need review).`);
+          if (kind === "upload") {
+            resetImport();
+            setSource(`dataset:${result.dataset_id}`);  // the upload is now an imported dataset
+          }
+          setNotice(`Imported ${count(result.imported_count)} (${result.uncategorised_count} need review).`);
         }
       }
       if (request !== run.current) return;
@@ -201,7 +212,7 @@ export default function App() {
             )}
 
             <CsvImport key={importSeed.key} initialFile={importSeed.file} onStatus={setCsv}
-                       onPicked={() => { run.current++; setRunning(false); setSource("upload"); setNotice(""); setError(""); }} />
+                       onPicked={() => startNewSource("upload")} />
 
             <button className="button primary run" onClick={runInsights} disabled={!canRun || running || loading}>
               {running || loading ? "Running…" : "Run Insights"}
@@ -216,20 +227,17 @@ export default function App() {
           <>
             <div className="results-head">
               <h2>Insights for {analysed.name}</h2>
-              {pending && sourceName && (
-                <p className="muted">You selected {sourceName}. Click Run Insights to analyse it; the figures below
-                  are still for {analysed.name}.</p>
-              )}
             </div>
             {loading && !summary ? <p className="muted">Loading summary…</p>
               : summary && <Overview summary={summary} stale={loading} />}
             {summary && categories !== undefined && (  // review appears only once a run has produced results
               <History key={analysed.id} datasetId={analysed.id} name={analysed.name} categories={categories}
+                       total={list?.datasets.find((d) => d.dataset_id === analysed.id)?.transaction_count ?? null}
                        onChanged={() => setRefreshKey((k) => k + 1)} />
             )}
           </>
         )}
-        {tab === "How It Works" && <Placeholder text="The engineering walkthrough arrives in Stage 7." />}
+        {tab === "How It Works" && <HowItWorks />}
       </main>
     </div>
   );
@@ -370,10 +378,6 @@ function Card({ label, value, detail, tone }: { label: string; value: string; de
       <span className="muted">{detail}</span>
     </div>
   );
-}
-
-function Placeholder({ text }: { text: string }) {
-  return <section className="card placeholder"><p className="muted">{text}</p></section>;
 }
 
 interface CsvStatus { file: File; mapping: Record<string, string> | null; ready: boolean }

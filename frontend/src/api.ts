@@ -9,7 +9,13 @@ export interface CsvPreview {
   row_count: number;
   missing_category_count: number | null;  // null = file has no category column
 }
-export interface Dataset { dataset_id: number; name: string; created_at: string; transaction_count: number }
+export interface Dataset {
+  dataset_id: number;
+  name: string;
+  created_at: string;
+  transaction_count: number;
+  source: string;  // "sample:<id>", "fixture:<id>" or "upload"
+}
 export interface DatasetList { samples: Sample[]; datasets: Dataset[] }
 
 export interface CategoryTotal { category: string | null; amount_cents: number }
@@ -53,7 +59,12 @@ export interface Transaction {
   currency: string;
 }
 
+export interface TransactionFilters { category: string; direction: string }
+
 export interface ImportResult { dataset_id: number; name: string; imported_count: number; uncategorised_count: number }
+
+// Category filter value the backend uses for "no category" (the review queue).
+export const UNCATEGORISED = "uncategorised";
 
 // Canonical fields accepted by the backend importer (importer.ALIASES).
 export const FIELDS = ["date", "company", "amount", "direction", "category", "currency", "transaction_id"];
@@ -84,6 +95,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   throw new ApiError(detail?.message ?? `Request failed (${response.status}).`, detail?.errors ?? [], detail?.code ?? "");
 }
 
+// Only non-empty values become query parameters.
+const query = (params: Record<string, string>) =>
+  new URLSearchParams(Object.entries(params).filter(([, value]) => value)).toString();
+
 function csvForm(file: File, mapping: Record<string, string> | null): FormData {
   const form = new FormData();
   form.append("file", file);
@@ -96,7 +111,8 @@ export const api = {
   loadSample: (sampleId: string) =>
     request<{ dataset_id: number }>(`/datasets/${sampleId}/load`, { method: "POST" }),
   summary: (datasetId: number) => request<Summary>(`/datasets/${datasetId}/summary`),
-  transactions: (datasetId: number) => request<Transaction[]>(`/datasets/${datasetId}/transactions`),
+  transactions: (datasetId: number, filters: Partial<TransactionFilters> = {}) =>
+    request<Transaction[]>(`/datasets/${datasetId}/transactions?${query(filters)}`),
   categories: () => request<{ categories: string[] }>("/categories"),
   fixtures: () => request<Fixture[]>("/fixtures"),
   samplePreview: (sampleId: string) => request<CsvPreview>(`/samples/${sampleId}/preview`),
