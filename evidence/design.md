@@ -13,11 +13,12 @@ backend/
   main.py          routes, sample loading (+ summary in Stage 4)
   db.py            sqlite3 connection + schema
   models.py        Transaction model + categories (shared; avoids circular imports)
-  importer.py      CSV parsing, aliases, mapping (Stage 3)
+  importer.py      CSV parsing, aliases, mapping, validation (no DB access)
   requirements.txt  pytest.ini  tests/
 frontend/src/      (Stage 5)
   App.tsx  Overview.tsx  History.tsx  HowItWorks.tsx  api.ts  styles.css
 sample-data/       small-business.csv, retail-business.csv (static, synthetic)
+  fixtures/        small valid/invalid import examples
 verify.sh          all automated checks (local + CI)
 .github/workflows/ci.yml
 ```
@@ -26,7 +27,7 @@ verify.sh          all automated checks (local + CI)
 
 | Backend | Frontend |
 |---------|----------|
-| fastapi, uvicorn (+ python-multipart in Stage 3) | react, react-dom, recharts |
+| fastapi, uvicorn, python-multipart (uploads) | react, react-dom, recharts |
 | pytest, httpx2 (TestClient) | vite 6, typescript, @vitejs/plugin-react |
 
 - Vite 6: local Node 22.9 is too old for Vite 7.
@@ -52,21 +53,32 @@ verify.sh          all automated checks (local + CI)
 | GET | `/datasets` | Samples + loaded datasets | Done |
 | POST | `/datasets/{sample_id}/load` | Load sample (idempotent) | Done |
 | GET | `/datasets/{id}/transactions` | List transactions | Done (filters: Stage 4) |
-| POST | `/datasets` | Upload CSV (+ optional mapping) | Stage 3 |
+| POST | `/datasets/preview` | Validate CSV + mapping; saves nothing | Done |
+| POST | `/datasets` | Import CSV as new dataset (atomic) | Done |
 | GET | `/datasets/{id}/summary?start&end` | Totals, monthly, by category, text | Stage 4 |
 | PATCH | `/datasets/{id}/transactions/{tid}` | Set category (audited) | Stage 4 |
 | GET | `/categories` | Approved categories | Stage 4 |
 
-- Errors: `{"detail": {"code", "message"}}`, e.g. `dataset_not_found`.
+- Errors: `{"detail": {"code", "message", ...}}`, e.g. `dataset_not_found`, `mapping_required`, `invalid_rows`, `duplicate_file`.
 - Invalid path or body values: FastAPI's default 422.
 
-## CSV import (Stage 3)
-- `.csv`, UTF-8, ≤ 2 MB, stdlib `csv`, in memory.
-- Known aliases (e.g. `payee` → company); unknown headers → user maps.
-- Date `YYYY-MM-DD` or `DD/MM/YYYY`; amount positive, ≤ 2 decimals → cents.
-- Direction: in/credit → INCOMING, out/debit → OUTGOING, else reject.
-- Blank category → null; otherwise must be approved.
-- All-or-nothing; duplicate file or transaction ID rejected.
+## CSV import
+- `.csv`, UTF-8, ≤ 1 MB, ≤ 5,000 rows; parsed in memory with stdlib `csv` and never stored.
+- **Two steps:** preview (validate, no writes), then import (re-upload and re-validate, then insert in one transaction).
+- **Mapping:** known aliases matched case-insensitively, ignoring spaces and underscores. A supplied `mapping` replaces auto-detection. Required: date, company, amount.
+- **Rejected:** unknown column, unsupported field, two columns mapped to one field, a field matched by several columns.
+- **Amount:** `[+-]digits[.dd]` → `Decimal` → integer cents, never zero, no floats.
+- **Direction:**
+  - With a direction column: `INCOMING`/`OUTGOING` (any case), and the amount must be unsigned.
+  - Without one: the sign decides (negative = OUTGOING).
+  - No direction column and no signed amounts → rejected as ambiguous.
+- **Category:** blank → null (needs review); otherwise must be approved (matched case-insensitively).
+- **Errors:** file-level problems → 4xx with a `code`; row problems → `{row, field, message}` (up to 50).
+
+**Duplicate identity**
+- **File:** SHA-256 of the raw bytes (`UNIQUE`). Re-importing the same file → 409.
+- **Transaction:** the `transaction_id` column if supplied (must be unique in the file; DB PK `(dataset_id, transaction_id)`), otherwise `row-<n>`.
+- Identical rows without IDs are kept as separate transactions, since repeats are legitimate.
 
 ## Calculations and review (Stage 4)
 - Income = INCOMING, Expenses = OUTGOING, Net = Income − Expenses. Uncategorised included.

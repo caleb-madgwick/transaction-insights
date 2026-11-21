@@ -1,15 +1,13 @@
 """Transaction Insights API."""
-import csv
 import hashlib
-import io
+import sqlite3
 from contextlib import asynccontextmanager, closing
-from datetime import datetime, timezone
-from decimal import Decimal
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Path as PathParam
+from fastapi import FastAPI, Form, Path as PathParam, UploadFile
 
 import db
+from importer import MAX_BYTES, api_error, parse_csv, parse_mapping
 from models import Transaction
 
 SAMPLE_DIR = Path(__file__).parent.parent / "sample-data"
@@ -25,20 +23,21 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Transaction Insights", lifespan=lifespan)
 
 
-def not_found(code: str, message: str) -> HTTPException:
-    return HTTPException(status_code=404, detail={"code": code, "message": message})
-
-
-def to_cents(amount: str) -> int:
-    """Convert a decimal dollar string to integer cents without floats."""
-    cents = Decimal(amount) * 100
-    if cents != cents.to_integral_value():
-        raise ValueError(f"Amount '{amount}' has more than 2 decimal places")
-    return int(cents)
+def sha256(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
 
 
 def sample_bytes(sample_id: str) -> bytes:
     return (SAMPLE_DIR / f"{sample_id}.csv").read_bytes()
+
+
+async def read_upload(file: UploadFile) -> bytes:
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise api_error(415, "unsupported_file_type", "Only .csv files are supported.")
+    content = await file.read(MAX_BYTES + 1)
+    if len(content) > MAX_BYTES:
+        raise api_error(413, "file_too_large", f"File must be {MAX_BYTES // 1_000_000} MB or smaller.")
+    return content
 
 
 @app.get("/health")
@@ -57,8 +56,7 @@ def list_datasets():
         ).fetchall()
     loaded = {r["file_sha256"]: r["dataset_id"] for r in rows}
     samples = [
-        {"sample_id": sample_id, "name": name,
-         "dataset_id": loaded.get(hashlib.sha256(sample_bytes(sample_id)).hexdigest())}
+        {"sample_id": sample_id, "name": name, "dataset_id": loaded.get(sha256(sample_bytes(sample_id)))}
         for sample_id, name in SAMPLES.items()
     ]
     datasets = [
@@ -68,45 +66,57 @@ def list_datasets():
     return {"samples": samples, "datasets": datasets}
 
 
+@app.post("/datasets/preview")
+async def preview_csv(file: UploadFile, mapping: str | None = Form(None)):
+    """Validate a CSV and report mapping and errors. Never writes to the database."""
+    report, _ = parse_csv(await read_upload(file), parse_mapping(mapping))
+    return report
+
+
+@app.post("/datasets", status_code=201)
+async def import_csv(file: UploadFile, mapping: str | None = Form(None), name: str = Form("")):
+    """Re-validate and import a CSV as a new dataset: all rows or nothing."""
+    content = await read_upload(file)
+    report, transactions = parse_csv(content, parse_mapping(mapping))
+    if report["missing_fields"]:
+        code = "mapping_required" if report["unmapped_columns"] else "missing_required_column"
+        raise api_error(422, code, f"Required fields not mapped: {', '.join(report['missing_fields'])}.",
+                        **report)
+    if not report["valid"]:
+        raise api_error(422, "invalid_rows",
+                        f"{report['error_count']} problem(s) found. Nothing was imported.", **report)
+
+    name = name.strip() or Path(file.filename).stem
+    try:
+        with closing(db.connect()) as conn, conn:
+            dataset_id = db.insert_dataset(conn, name, sha256(content), transactions)
+    except sqlite3.IntegrityError as exc:
+        if "file_sha256" not in str(exc):
+            raise
+        raise api_error(409, "duplicate_file", "This file has already been imported.")
+    return {"dataset_id": dataset_id, "name": name, "imported_count": len(transactions),
+            "uncategorised_count": report["uncategorised_count"]}
+
+
 @app.post("/datasets/{sample_id}/load")
 def load_sample(sample_id: str):
     if sample_id not in SAMPLES:
-        raise not_found("sample_not_found",
+        raise api_error(404, "sample_not_found",
                         f"Unknown sample '{sample_id}'. Available: {', '.join(SAMPLES)}")
     content = sample_bytes(sample_id)
-    file_hash = hashlib.sha256(content).hexdigest()
 
     with closing(db.connect()) as conn:
         with conn:  # one transaction: dataset and all rows, or nothing
             existing = conn.execute(
-                "SELECT dataset_id FROM datasets WHERE file_sha256 = ?", (file_hash,)
+                "SELECT dataset_id FROM datasets WHERE file_sha256 = ?", (sha256(content),)
             ).fetchone()
             if existing:
                 dataset_id = existing["dataset_id"]
             else:
-                dataset_id = conn.execute(
-                    "INSERT INTO datasets (name, file_sha256, created_at) VALUES (?, ?, ?)",
-                    (SAMPLES[sample_id], file_hash, datetime.now(timezone.utc).isoformat()),
-                ).lastrowid
-                transactions = [
-                    Transaction(
-                        transaction_id=row["transaction_id"],
-                        dataset_id=dataset_id,
-                        date=row["date"],
-                        company=row["company"],
-                        category=row["category"] or None,
-                        direction=row["direction"],
-                        amount_cents=to_cents(row["amount"]),
-                        currency=row["currency"],
-                    )
-                    for row in csv.DictReader(io.StringIO(content.decode("utf-8")))
-                ]
-                conn.executemany(
-                    "INSERT INTO transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    [(t.dataset_id, t.transaction_id, t.date.isoformat(), t.company,
-                      t.category, t.direction, t.amount_cents, t.currency)
-                     for t in transactions],
-                )
+                report, transactions = parse_csv(content)
+                if not report["valid"]:
+                    raise RuntimeError(f"Sample '{sample_id}' failed validation")
+                dataset_id = db.insert_dataset(conn, SAMPLES[sample_id], sha256(content), transactions)
         count = conn.execute(
             "SELECT COUNT(*) FROM transactions WHERE dataset_id = ?", (dataset_id,)
         ).fetchone()[0]
@@ -123,7 +133,7 @@ def list_transactions(
         if not conn.execute(
             "SELECT 1 FROM datasets WHERE dataset_id = ?", (dataset_id,)
         ).fetchone():
-            raise not_found("dataset_not_found", f"Dataset {dataset_id} does not exist")
+            raise api_error(404, "dataset_not_found", f"Dataset {dataset_id} does not exist")
         rows = conn.execute(
             "SELECT * FROM transactions WHERE dataset_id = ? ORDER BY date, transaction_id",
             (dataset_id,),

@@ -1,5 +1,6 @@
 """SQLite connection and schema."""
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent / "transaction_insights.db"
@@ -47,3 +48,17 @@ def init_db() -> None:
     conn = connect()
     conn.executescript(SCHEMA)
     conn.close()
+
+
+def insert_dataset(conn: sqlite3.Connection, name: str, file_sha256: str, transactions) -> int:
+    """Insert a dataset and its transactions. Call inside `with conn:` so a failure rolls back both."""
+    dataset_id = conn.execute(
+        "INSERT INTO datasets (name, file_sha256, created_at) VALUES (?, ?, ?)",
+        (name, file_sha256, datetime.now(timezone.utc).isoformat()),
+    ).lastrowid
+    conn.executemany(
+        "INSERT INTO transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [(dataset_id, t.transaction_id, t.date.isoformat(), t.company,
+          t.category, t.direction, t.amount_cents, t.currency) for t in transactions],
+    )
+    return dataset_id

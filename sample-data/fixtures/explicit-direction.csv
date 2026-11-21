@@ -1,0 +1,4 @@
+Transaction Date,Merchant,Category,Direction,Amount
+2026-07-01,Example Supplies,Supplies,OUTGOING,125.50
+2026-07-02,Example Client,Sales,INCOMING,1500.00
+2026-07-03,Example Landlord,Rent,outgoing,2000

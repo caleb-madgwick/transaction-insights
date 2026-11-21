@@ -1,0 +1,4 @@
+transaction_id,date,company,category,direction,amount
+T-1,2026-07-01,Example Supplies,Supplies,OUTGOING,125.50
+T-2,2026-07-02,Example Client,Sales,INCOMING,1500.00
+T-1,2026-07-03,Example Cafe,Supplies,OUTGOING,18.40

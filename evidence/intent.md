@@ -15,8 +15,8 @@ Transaction CSVs are inconsistent and often miss categories. Users need trustwor
 
 ## Assumptions
 - Single local user, no auth.
-- AUD only. Dates `YYYY-MM-DD` or `DD/MM/YYYY`.
-- Direction must be explicit; signed amounts rejected.
+- AUD only. Dates `YYYY-MM-DD` only.
+- Direction comes from a direction column, or from signed amounts (negative = OUTGOING). Unsigned amounts with no direction column are rejected.
 - Each upload = new dataset.
 - Fixed approved category list; blank category = uncategorised.
 - Synthetic data, no runtime AI, 3-hour timebox.
@@ -26,12 +26,12 @@ Auth, multi-currency, editing/deleting transactions, merging uploads, debit/cred
 
 ## Acceptance criteria
 - [x] Two sample datasets available; loading twice never duplicates.
-- [ ] Non-CSV files rejected.
-- [ ] Missing required columns named in error.
-- [ ] Unknown headers → mapping prompt → import succeeds.
-- [ ] Any invalid row (date, amount, direction, currency, category) rejects the whole file.
-- [ ] Duplicate files and duplicate transaction IDs rejected.
-- [ ] Blank categories import as uncategorised.
+- [x] Non-CSV files rejected.
+- [x] Missing required columns named in error.
+- [x] Unknown headers → mapping prompt → import succeeds.
+- [x] Any invalid row (date, amount, direction, currency, category) rejects the whole file.
+- [x] Duplicate files and duplicate transaction IDs rejected.
+- [x] Blank categories import as uncategorised.
 - [ ] Income, expenses, net are correct and include uncategorised rows.
 - [ ] Chart aggregates sum to totals.
 - [ ] Summary text is deterministic.

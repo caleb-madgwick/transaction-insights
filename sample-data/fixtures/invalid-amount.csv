@@ -1,0 +1,5 @@
+date,company,category,direction,amount
+2026-07-01,Example Supplies,Supplies,OUTGOING,12.345
+2026-07-02,Example Client,Sales,INCOMING,abc
+2026-07-03,Example Cafe,Supplies,OUTGOING,0.00
+2026-07-04,Example Landlord,Rent,OUTGOING,2000.00
